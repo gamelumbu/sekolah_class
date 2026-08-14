@@ -38,4 +38,4 @@ Untuk membuat `AUTH_SECRET`, jalankan `openssl rand -base64 48` di komputer Anda
 3. Tambahkan ketiga environment variable di atas untuk environment Production, Preview, dan Development sesuai kebutuhan.
 4. Jalankan deployment.
 
-> Data tenaga pendidik tersimpan di server bundle dan hanya dikirim setelah sesi login tervalidasi. Repository dibuat private dan kredensial tidak disimpan di source code.
+> Data tenaga pendidik disimpan terkompresi di server bundle dan hanya dikirim setelah sesi login tervalidasi. Repository dibuat private dan kredensial tidak disimpan di source code.
