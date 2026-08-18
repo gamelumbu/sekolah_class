@@ -230,13 +230,27 @@ function ChartCard({ title, subtitle, children, wide = false, exportPeople }: { 
     setExporting("png");
     setExportError("");
     setExportNotice("");
+    const capture = captureRef.current;
+    const scrollers = [...capture.querySelectorAll<HTMLElement>(".data-studio-scroll")];
+    const captureStyle = { width: capture.style.width, maxWidth: capture.style.maxWidth };
+    const scrollStyles = scrollers.map((element) => ({ element, width: element.style.width, overflow: element.style.overflow }));
     try {
       const { toPng } = await import("html-to-image");
-      const dataUrl = await toPng(captureRef.current, { backgroundColor: "#ffffff", cacheBust: true, pixelRatio: 2, skipFonts: true });
+      const exportWidth = Math.max(capture.clientWidth, ...scrollers.map((element) => element.scrollWidth));
+      if (exportWidth > capture.clientWidth) {
+        capture.style.width = `${exportWidth + 8}px`;
+        capture.style.maxWidth = "none";
+        scrollers.forEach((element) => { element.style.width = `${element.scrollWidth}px`; element.style.overflow = "visible"; });
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      }
+      const dataUrl = await toPng(capture, { backgroundColor: "#ffffff", cacheBust: true, pixelRatio: 2, skipFonts: true });
       triggerDownload(dataUrl, `${exportFileName(title)}.png`);
     } catch {
       setExportError("PNG gagal dibuat. Silakan coba lagi.");
     } finally {
+      capture.style.width = captureStyle.width;
+      capture.style.maxWidth = captureStyle.maxWidth;
+      scrollStyles.forEach(({ element, width, overflow }) => { element.style.width = width; element.style.overflow = overflow; });
       setExporting(null);
     }
   }
