@@ -202,7 +202,8 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px s
 .donut:has(g.is-selected) g[role="button"]:not(.is-selected) { opacity: .38; }
 .donut-slice { transition: filter .16s ease, stroke-width .16s ease; }
 .donut g[role="button"]:hover .donut-slice, .donut g[role="button"]:focus-visible .donut-slice, .donut g.is-selected .donut-slice { stroke-width: 38; }
-.donut-value { pointer-events: none; fill: #fff; stroke: rgba(10, 32, 58, .42); stroke-width: 2.2px; paint-order: stroke fill; font-size: 9px; font-weight: 900; }
+.donut-value { pointer-events: none; fill: #fff; stroke: rgba(10, 32, 58, .42); stroke-width: 2.2px; paint-order: stroke fill; font-size: 8.5px; font-weight: 900; }
+.donut-percent { font-size: 7px; font-weight: 800; }
 .donut-center { pointer-events: none; fill: #fff; stroke: #edf1f6; stroke-width: 1; }
 .donut-total, .donut-total-label { pointer-events: none; }
 .donut-total { fill: var(--navy-900); font-size: 16px; font-weight: 850; }
@@ -369,6 +370,7 @@ footer strong { color: var(--navy-900); }
 .task-pie g:hover, .task-pie g.is-selected { filter: saturate(1.12) brightness(.96); }
 .task-pie g.is-selected ~ g, .task-pie:has(g.is-selected) g:not(.is-selected) { opacity: .42; }
 .task-pie text { pointer-events: none; fill: #102e50; font-size: 11px; font-weight: 800; }
+.task-pie-percent { font-size: 9px; font-weight: 750; }
 .task-pie-legend { display: flex; flex-direction: column; gap: 8px; }
 .task-pie-legend button { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 8px; padding: 8px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #4f6073; font-size: 10px; cursor: pointer; text-align: left; }
 .task-pie-legend button:hover, .task-pie-legend button.is-selected { border-color: #cbdced; background: #f4f8fd; }

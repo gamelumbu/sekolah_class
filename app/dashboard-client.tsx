@@ -128,6 +128,11 @@ function formatNumber(value: number, digits = 0) {
   return new Intl.NumberFormat("id-ID", { maximumFractionDigits: digits }).format(value);
 }
 
+function formatPercent(value: number, total: number) {
+  const percentage = total > 0 ? value / total * 100 : 0;
+  return `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(percentage)}%`;
+}
+
 function bucketHours(value: number) {
   if (value < 12) return "<12";
   if (value < 18) return "12-17";
@@ -460,14 +465,17 @@ function TaskPresencePie({ data, segments, onToggle }: { data: Teacher[]; segmen
     return { ...item, start, end, startPoint, endPoint, labelPoint, largeArc: end - start > 180 ? 1 : 0 };
   });
   return (
-    <div className="task-pie-layout" data-export-json={JSON.stringify(rows.map((item) => ({ Kategori: item.label, Jumlah_Tenaga_Pendidik: item.value })))} data-export-group="hasTask" data-export-values={JSON.stringify(rows.map((item) => item.label))}>
+    <div className="task-pie-layout" data-export-json={JSON.stringify(rows.map((item) => ({ Kategori: item.label, Jumlah_Tenaga_Pendidik: item.value, Persentase: Number((item.value / total * 100).toFixed(2)) })))} data-export-group="hasTask" data-export-values={JSON.stringify(rows.map((item) => item.label))}>
       <svg className="task-pie" viewBox="0 0 240 240" role="img" aria-label="Tenaga pendidik berdasarkan tugas tambahan">
         {slices.map((slice) => <g key={slice.label} role="button" tabIndex={0} className={segments.hasTask?.includes(slice.label) ? "is-selected" : ""} onClick={() => onToggle("hasTask", slice.label)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onToggle("hasTask", slice.label); }}>
           <path d={`M 120 120 L ${slice.startPoint.x} ${slice.startPoint.y} A 105 105 0 ${slice.largeArc} 1 ${slice.endPoint.x} ${slice.endPoint.y} Z`} fill={slice.color} stroke="#fff" strokeWidth="2" />
-          <text x={slice.labelPoint.x} y={slice.labelPoint.y} textAnchor="middle" dominantBaseline="middle">{formatNumber(slice.value)}</text>
+          <text x={slice.labelPoint.x} y={slice.labelPoint.y} textAnchor="middle" dominantBaseline="middle">
+            <tspan x={slice.labelPoint.x} dy="-0.35em">{formatNumber(slice.value)}</tspan>
+            <tspan className="task-pie-percent" x={slice.labelPoint.x} dy="1.25em">{formatPercent(slice.value, total)}</tspan>
+          </text>
         </g>)}
       </svg>
-      <div className="task-pie-legend">{rows.map((item) => <button type="button" key={item.label} className={segments.hasTask?.includes(item.label) ? "is-selected" : ""} onClick={() => onToggle("hasTask", item.label)}><i style={{ background: item.color }} /><span>{item.label}</span><strong>{formatNumber(item.value)}</strong></button>)}</div>
+      <div className="task-pie-legend">{rows.map((item) => <button type="button" key={item.label} className={segments.hasTask?.includes(item.label) ? "is-selected" : ""} onClick={() => onToggle("hasTask", item.label)}><i style={{ background: item.color }} /><span>{item.label}</span><strong>{formatNumber(item.value)} · {formatPercent(item.value, total)}</strong></button>)}</div>
     </div>
   );
 }
@@ -679,7 +687,7 @@ function DonutChart({ data, group, segments, onToggle }: {
             className={segments[group]?.includes(slice.label) ? "is-selected" : ""}
             onClick={() => { if (slice.value > 0) onToggle(group, slice.label); }}
             onKeyDown={(event) => { if (slice.value > 0 && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onToggle(group, slice.label); } }}
-            aria-label={`${slice.label}: ${formatNumber(slice.value)} guru. Klik untuk melihat detail.`}
+            aria-label={`${slice.label}: ${formatNumber(slice.value)} guru (${formatPercent(slice.value, total)}). Klik untuk melihat detail.`}
           >
             <circle
               className="donut-slice"
@@ -694,8 +702,11 @@ function DonutChart({ data, group, segments, onToggle }: {
               strokeDashoffset={-slice.startPercent}
               transform="rotate(-90 80 80)"
             />
-            {slice.value > 0 && <text className="donut-value" x={slice.labelX} y={slice.labelY} textAnchor="middle" dominantBaseline="middle">{formatNumber(slice.value)}</text>}
-            <title>{slice.label}: {formatNumber(slice.value)} guru</title>
+            {slice.value > 0 && slice.sweepPercent >= 6 && <text className="donut-value" x={slice.labelX} y={slice.labelY} textAnchor="middle" dominantBaseline="middle">
+              <tspan x={slice.labelX} dy="-0.35em">{formatNumber(slice.value)}</tspan>
+              <tspan className="donut-percent" x={slice.labelX} dy="1.25em">{formatPercent(slice.value, total)}</tspan>
+            </text>}
+            <title>{slice.label}: {formatNumber(slice.value)} guru ({formatPercent(slice.value, total)})</title>
           </g>
         ))}
         <circle className="donut-center" cx="80" cy="80" r="42" />
@@ -705,7 +716,7 @@ function DonutChart({ data, group, segments, onToggle }: {
       <div className="donut-legend">
         {data.map((item, index) => (
           <button type="button" className={segments[group]?.includes(item.label) ? "is-selected" : ""} key={item.label} onClick={() => { if (item.value > 0) onToggle(group, item.label); }} disabled={item.value === 0}>
-            <i style={{ background: palette[index % palette.length] }} /><span>{item.label}</span><strong>{formatNumber(item.value)} · {Math.round((item.value / total) * 100)}%</strong>
+            <i style={{ background: palette[index % palette.length] }} /><span>{item.label}</span><strong>{formatNumber(item.value)} · {formatPercent(item.value, total)}</strong>
           </button>
         ))}
       </div>
