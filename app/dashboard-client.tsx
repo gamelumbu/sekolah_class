@@ -653,19 +653,64 @@ function DonutChart({ data, group, segments, onToggle }: {
   segments: Segments;
   onToggle: (group: string, value: string) => void;
 }) {
-  const total = data.reduce((sum, item) => sum + item.value, 0) || 1;
-  const stops = data.map((item, index) => {
-    const start = data.slice(0, index).reduce((sum, current) => sum + current.value, 0) / total * 100;
-    const end = start + item.value / total * 100;
-    return `${palette[index % palette.length]} ${start}% ${end}%`;
-  }).join(", ");
+  const actualTotal = data.reduce((sum, item) => sum + item.value, 0);
+  const total = Math.max(actualTotal, 1);
+  let cursor = 0;
+  const slices = data.map((item, index) => {
+    const startPercent = cursor;
+    const sweepPercent = item.value / total * 100;
+    cursor += sweepPercent;
+    const midpoint = -90 + (startPercent + sweepPercent / 2) * 3.6;
+    const labelRadius = 61;
+    return {
+      ...item,
+      color: palette[index % palette.length],
+      startPercent,
+      sweepPercent,
+      labelX: 80 + Math.cos(midpoint * Math.PI / 180) * labelRadius,
+      labelY: 80 + Math.sin(midpoint * Math.PI / 180) * labelRadius,
+    };
+  });
+
   return (
     <div className="donut-layout" data-export-json={JSON.stringify(data.map((item) => ({ Kategori: item.label, Jumlah: item.value, Persentase: Number((item.value / total * 100).toFixed(2)) })))} data-export-group={group} data-export-values={JSON.stringify(data.map((item) => item.label))}>
-      <div className="donut" style={{ background: `conic-gradient(${stops})` }}><div className="donut-hole"><div><strong>{formatNumber(total)}</strong><span>Total guru</span></div></div></div>
+      <svg className="donut" viewBox="0 0 160 160" role="img" aria-label="Komposisi jumlah tenaga pendidik">
+        <circle className="donut-track" cx="80" cy="80" r="61" />
+        {slices.map((slice) => (
+          <g
+            key={slice.label}
+            role="button"
+            tabIndex={slice.value > 0 ? 0 : -1}
+            className={segments[group]?.includes(slice.label) ? "is-selected" : ""}
+            onClick={() => { if (slice.value > 0) onToggle(group, slice.label); }}
+            onKeyDown={(event) => { if (slice.value > 0 && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onToggle(group, slice.label); } }}
+            aria-label={`${slice.label}: ${formatNumber(slice.value)} guru. Klik untuk melihat detail.`}
+          >
+            <circle
+              className="donut-slice"
+              cx="80"
+              cy="80"
+              r="61"
+              pathLength="100"
+              fill="none"
+              stroke={slice.color}
+              strokeWidth="35"
+              strokeDasharray={`${slice.sweepPercent} ${100 - slice.sweepPercent}`}
+              strokeDashoffset={-slice.startPercent}
+              transform="rotate(-90 80 80)"
+            />
+            {slice.value > 0 && <text className="donut-value" x={slice.labelX} y={slice.labelY} textAnchor="middle" dominantBaseline="middle">{formatNumber(slice.value)}</text>}
+            <title>{slice.label}: {formatNumber(slice.value)} guru</title>
+          </g>
+        ))}
+        <circle className="donut-center" cx="80" cy="80" r="42" />
+        <text className="donut-total" x="80" y="77" textAnchor="middle">{formatNumber(actualTotal)}</text>
+        <text className="donut-total-label" x="80" y="92" textAnchor="middle">Total guru</text>
+      </svg>
       <div className="donut-legend">
         {data.map((item, index) => (
-          <button className={segments[group]?.includes(item.label) ? "is-selected" : ""} key={item.label} onClick={() => onToggle(group, item.label)}>
-            <i style={{ background: palette[index % palette.length] }} /><span>{item.label}</span><strong>{Math.round((item.value / total) * 100)}%</strong>
+          <button type="button" className={segments[group]?.includes(item.label) ? "is-selected" : ""} key={item.label} onClick={() => { if (item.value > 0) onToggle(group, item.label); }} disabled={item.value === 0}>
+            <i style={{ background: palette[index % palette.length] }} /><span>{item.label}</span><strong>{formatNumber(item.value)} · {Math.round((item.value / total) * 100)}%</strong>
           </button>
         ))}
       </div>
