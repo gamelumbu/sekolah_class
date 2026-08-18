@@ -766,6 +766,99 @@ function SimulationLine({ data, standard, setStandard }: { data: Teacher[]; stan
   );
 }
 
+
+const segmentLabels: Record<string, string> = {
+  jenjang: "Jenjang", program: "Program", teacherCategory: "Kategori guru", status: "Status kontrak",
+  payroll: "Payroll", gender: "Jenis kelamin", school: "Sekolah", subject: "Bidang studi",
+  compliance: "Kepatuhan", schoolCount: "Jumlah lokasi", taskCount: "Jumlah jabatan tambahan",
+  taskType: "Jenis tugas tambahan", hasTask: "Tugas tambahan", nik: "NIK", role: "Peran",
+  jtmBucket: "Kelompok JTM", taskBucket: "Kelompok jam tugas", actualBucket: "Kelompok jam aktual",
+  jtmValue: "Total JP tatap muka", taskHoursValue: "Total JP tugas tambahan", actualValue: "Total jam aktual",
+  jtmStandard24: "Kelompok JTM", actualStandard24: "Kelompok jam aktual",
+  jtmStandard30: "Kelompok JTM internasional", actualStandard30: "Kelompok jam aktual internasional",
+  scenario: "Skenario",
+};
+
+function DetailPopupModal({ open, data, segments, page, onClose, onClear }: {
+  open: boolean; data: Teacher[]; segments: Segments; page: string; onClose: () => void; onClear: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [pageIndex, setPageIndex] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const onCloseRef = useRef(onClose);
+  const pageSize = 20;
+  const active = useMemo(() => Object.entries(segments).flatMap(([group, values]) => values.map((value) => ({ group, value }))), [segments]);
+  const searched = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return data;
+    return data.filter((teacher) => `${teacher.nik} ${teacher.name} ${teacher.school} ${teacher.payroll} ${teacher.subject} ${teacher.status}`.toLowerCase().includes(query));
+  }, [data, search]);
+  const maxPage = Math.max(Math.ceil(searched.length / pageSize) - 1, 0);
+  const safePage = Math.min(pageIndex, maxPage);
+  const displayed = searched.slice(safePage * pageSize, safePage * pageSize + pageSize);
+
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    setSearch("");
+    setPageIndex(0);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onCloseRef.current(); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => { document.body.style.overflow = previousOverflow; window.removeEventListener("keydown", closeOnEscape); };
+  }, [open]);
+
+  async function exportExcel() {
+    if (!searched.length) return;
+    setExporting(true);
+    try {
+      const XLSX = await import("xlsx");
+      const rows = searched.map((teacher) => ({
+        NIK: teacher.nik, "Nama Lengkap": teacher.name, "Grup Jenjang": teacher.groupJenjang,
+        Jenjang: teacher.jenjang, Program: teacher.program, "Kategori Guru": teacher.teacherCategory,
+        Sekolah: teacher.school, Payroll: teacher.payroll, "Status Kontrak": teacher.status,
+        "Status Individu": teacher.statusIndividu, "Bidang Studi": teacher.subject,
+        "JP Tatap Muka": teacher.jtm, "JP Tugas Tambahan": teacher.taskHours,
+        "Jumlah Jabatan Tambahan": teacher.taskCount, "Jam Aktual": teacher.actual,
+        "Standar JP": standardForTeacher(teacher), Kepatuhan: teacher.compliance,
+        "Lokasi Mengajar": teacher.locations.join(", "), "Tugas Tambahan": teacher.tasks.join(", "),
+      }));
+      const sheet = XLSX.utils.json_to_sheet(rows);
+      sheet["!cols"] = Object.keys(rows[0]).map((key) => ({ wch: Math.min(42, Math.max(12, key.length + 2)) }));
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, sheet, "Detail Guru");
+      XLSX.writeFile(workbook, `detail-chart-${exportFileName(page)}.xlsx`);
+    } finally { setExporting(false); }
+  }
+
+  if (!open) return null;
+  return (
+    <div className="chart-detail-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="chart-detail-modal" role="dialog" aria-modal="true" aria-labelledby="chart-detail-title">
+        <header className="chart-detail-header">
+          <div><p className="eyebrow">Detail pilihan chart</p><div className="chart-detail-title-row"><h2 id="chart-detail-title">Daftar Tenaga Pendidik</h2><span className="chart-detail-count">{formatNumber(searched.length)} orang</span></div><p>Data berikut sudah mengikuti filter dashboard dan bagian chart yang Anda klik.</p></div>
+          <button type="button" className="chart-detail-close" onClick={onClose} aria-label="Tutup detail" autoFocus>×</button>
+        </header>
+        {active.length > 0 && <div className="chart-detail-filters"><span>Pilihan aktif</span>{active.map((item) => <em className="filter-chip" key={`${item.group}-${item.value}`}><small>{segmentLabels[item.group] || item.group}</small>{item.value}</em>)}</div>}
+        <div className="chart-detail-toolbar">
+          <label className="chart-detail-search"><span aria-hidden="true">⌕</span><input value={search} onChange={(event) => { setSearch(event.target.value); setPageIndex(0); }} placeholder="Cari NIK, nama, sekolah, payroll, atau bidang studi..." aria-label="Cari tenaga pendidik" /></label>
+          <div className="chart-detail-actions">{active.length > 0 && <button type="button" className="clear-button" onClick={onClear}>Hapus pilihan</button>}<button type="button" className="export-button" onClick={exportExcel} disabled={!searched.length || exporting}>{exporting ? "Menyiapkan..." : "Unduh Excel"}</button></div>
+        </div>
+        <div className="chart-detail-table"><table>
+          <thead><tr><th>NIK</th><th>Nama Lengkap</th><th>Grup Jenjang</th><th>Jenjang</th><th>Sekolah / Payroll</th><th>Status</th><th>Bidang Studi</th><th>JTM</th><th>Jam Tugas</th><th>Aktual</th><th>Kepatuhan</th></tr></thead>
+          <tbody>
+            {displayed.map((teacher) => <tr key={teacher.nik}><td className="mono">{teacher.nik}</td><td><strong>{teacher.name}</strong><small>{teacher.statusIndividu}{teacher.isWakasek ? " • Wakasek" : ""}{teacher.isBK ? " • BK" : ""}</small></td><td><span className="group-badge">{teacher.groupJenjang}</span></td><td><span className="level-badge">{teacher.jenjang}</span></td><td>{teacher.school}<small>{teacher.payroll}</small></td><td>{teacher.status}</td><td>{teacher.subject}</td><td>{numericLabel(teacher.jtm)}</td><td>{numericLabel(teacher.taskHours)}</td><td><strong>{numericLabel(teacher.actual)}</strong></td><td><span className={`status-pill ${teacher.compliance === "Di bawah standar" ? "danger" : teacher.compliance === "Tepat standar" ? "warning" : "success"}`}>{teacher.compliance}</span></td></tr>)}
+            {!displayed.length && <tr><td colSpan={11}><EmptyState title="Data tidak ditemukan" body="Coba ubah kata pencarian atau hapus pilihan chart." /></td></tr>}
+          </tbody>
+        </table></div>
+        <footer className="chart-detail-footer"><p>Menampilkan {searched.length ? safePage * pageSize + 1 : 0}–{Math.min((safePage + 1) * pageSize, searched.length)} dari {formatNumber(searched.length)} orang</p><div><button type="button" onClick={() => setPageIndex((value) => Math.max(0, value - 1))} disabled={safePage === 0}>Sebelumnya</button><span>Halaman {safePage + 1} / {maxPage + 1}</span><button type="button" onClick={() => setPageIndex((value) => Math.min(maxPage, value + 1))} disabled={safePage === maxPage}>Berikutnya</button></div></footer>
+      </section>
+    </div>
+  );
+}
+
 function DetailTable({ data, segments, clearSegments, page }: { data: Teacher[]; segments: Segments; clearSegments: () => void; page: string }) {
   const [search, setSearch] = useState("");
   const [pageIndex, setPageIndex] = useState(0);
@@ -803,6 +896,7 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
   const [mobileNav, setMobileNav] = useState(false);
   const [filters, setFilters] = useState<FilterState>({ year: [], groupJenjang: [], jenjang: [], program: [], teacherCategory: [], school: [], status: [], individual: [] });
   const [segments, setSegments] = useState<Segments>({});
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [workTab, setWorkTab] = useState("Tatap Muka");
   const [workStandardScope, setWorkStandardScope] = useState<"Nasional" | "Internasional">("Nasional");
   const [taskTab, setTaskTab] = useState("Umum");
@@ -837,7 +931,7 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
     setSegments({});
   }
   function toggleLevel(level: string) { updateFilter("jenjang", filters.jenjang.includes(level) ? filters.jenjang.filter((item) => item !== level) : [...filters.jenjang, level]); }
-  function toggleSegment(group: string, value: string) { setSegments((current) => { const values = current[group] || []; return { ...current, [group]: values.includes(value) ? values.filter((item) => item !== value) : [...values, value] }; }); }
+  function toggleSegment(group: string, value: string) { setSegments((current) => { const values = current[group] || []; return { ...current, [group]: values.includes(value) ? values.filter((item) => item !== value) : [...values, value] }; }); setDetailModalOpen(true); }
   function navigate(page: string) { setActivePage(page); setSegments({}); setMobileNav(false); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function resetAll() { setFilters({ year: [], groupJenjang: [], jenjang: [], program: [], teacherCategory: [], school: [], status: [], individual: [] }); setWorkStandardScope("Nasional"); setStandard(24); setSegments({}); }
 
@@ -944,6 +1038,7 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
           {activePage === "simulation" && <><div className="tab-row">{["Standar JP", "Kebutuhan Guru", "Pemerataan Tugas", "Perbandingan Jenjang"].map((tab) => <button className={simTab === tab ? "active" : ""} key={tab} onClick={() => { setSimTab(tab); setSegments({}); }}>{tab}</button>)}</div>{simTab === "Standar JP" && <><div className="scenario-panel"><div><p>{internationalOnly ? "Standar Jenjang Internasional" : "Standar simulasi jenjang lain"}</p><strong>{effectiveSimulationStandard} JP</strong></div><input type="range" min="24" max="30" value={effectiveSimulationStandard} disabled={internationalOnly} onChange={(event) => { setStandard(Number(event.target.value)); setSegments({}); }} /><span>{internationalOnly ? "Internasional" : "24 JP"}</span><span>{internationalOnly ? "30 JP tetap" : "30 JP"}</span></div><div className="kpi-grid compact"><KpiCard label="Di Bawah Standar" value={formatNumber(baseData.filter((teacher) => isBelowStandard(teacher, effectiveSimulationStandard)).length)} helper={effectivePolicyLabel} tone="red" /><KpiCard label="Tepat Standar" value={formatNumber(baseData.filter((teacher) => teacher.actual === standardForTeacher(teacher, effectiveSimulationStandard)).length)} helper={effectivePolicyLabel} tone="gold" /><KpiCard label="Di Atas Standar" value={formatNumber(baseData.filter((teacher) => teacher.actual > standardForTeacher(teacher, effectiveSimulationStandard)).length)} helper={effectivePolicyLabel} tone="green" /></div><div className="chart-grid"><ChartCard title={internationalOnly ? "Standar Tetap Internasional 30 JP" : "Dampak Perubahan Standar 24-30 JP"} subtitle={internationalOnly ? "Jenjang Internasional otomatis menggunakan standar 30 JP" : "Internasional tetap menggunakan standar 30 JP"} exportPeople={pageData.filter((teacher) => isBelowStandard(teacher, effectiveSimulationStandard))}><SimulationLine data={baseData} standard={effectiveSimulationStandard} setStandard={(value) => { if (internationalOnly) return; setStandard(value); setSegments({}); }} /></ChartCard><ChartCard title="Kategori per Jenjang" subtitle={effectivePolicyLabel}><StackedCompliance data={baseData} segments={segments} onToggle={toggleSegment} standard={effectiveSimulationStandard} /></ChartCard></div></>}{simTab === "Kebutuhan Guru" && <div className="readiness-grid"><EmptyState title="Data formasi belum tersedia" body="Perhitungan kebutuhan guru per mapel memerlukan jumlah rombel, JP kurikulum per mapel, dan formasi guru per sekolah. Dashboard tidak membuat estimasi tanpa sumber resmi." /><ChartCard title="Data yang Sudah Tersedia" subtitle="Siap digunakan ketika data formasi ditambahkan"><HorizontalBars data={countBy(baseData, (teacher) => teacher.subject)} group="subject" segments={segments} onToggle={toggleSegment} maxItems={12} /></ChartCard></div>}{simTab === "Pemerataan Tugas" && <><div className="scenario-panel"><div><p>Tambahan jam simulasi</p><strong>+{extraHours} JP</strong></div><input type="range" min="0" max="12" step="3" value={extraHours} onChange={(event) => setExtraHours(Number(event.target.value))} /><span>0 JP</span><span>12 JP</span></div><div className="kpi-grid compact"><KpiCard label="Di Bawah Sebelum" value={formatNumber(baseData.filter((teacher) => isBelowStandard(teacher)).length)} helper={internationalOnly ? "Internasional · standar 30 JP" : "24 JP · Internasional 30 JP"} tone="red" /><KpiCard label="Memenuhi Setelah Simulasi" value={formatNumber(baseData.filter((teacher) => isBelowStandard(teacher) && teacher.actual + extraHours >= standardForTeacher(teacher)).length)} helper={`Berubah setelah +${extraHours} JP`} tone="green" /><KpiCard label="Masih Di Bawah" value={formatNumber(baseData.filter((teacher) => teacher.actual + extraHours < standardForTeacher(teacher)).length)} helper="Perlu tindak lanjut" tone="gold" /></div><ChartCard title="Dampak Pemerataan per Jenjang" subtitle={internationalOnly ? "Mencapai standar Internasional 30 JP" : "Mencapai standar 24 JP · Internasional 30 JP"} wide exportPeople={pageData.filter((teacher) => isBelowStandard(teacher) && teacher.actual + extraHours >= standardForTeacher(teacher))}><HorizontalBars data={["TK", "SD", "SMP", "SLTA", "Internasional"].map((level) => ({ label: level, value: baseData.filter((teacher) => teacher.jenjang === level && isBelowStandard(teacher) && teacher.actual + extraHours >= standardForTeacher(teacher)).length }))} group="jenjang" segments={segments} onToggle={toggleSegment} maxItems={6} /></ChartCard></>}{simTab === "Perbandingan Jenjang" && <div className="chart-grid"><ChartCard title="Jumlah Tenaga Pendidik" subtitle="Perbandingan seluruh jenjang"><ColumnChart data={countBy(baseData, (teacher) => teacher.jenjang)} group="jenjang" segments={segments} onToggle={toggleSegment} /></ChartCard><ChartCard title="Kepatuhan Jam Aktual" subtitle={internationalOnly ? "Internasional · standar 30 JP" : "24 JP · Internasional 30 JP"}><StackedCompliance data={baseData} segments={segments} onToggle={toggleSegment} /></ChartCard></div>}</>}
 
           <DetailTable data={pageData} segments={segments} clearSegments={() => setSegments({})} page={activePage} />
+        <DetailPopupModal open={detailModalOpen} data={pageData} segments={segments} page={activePage} onClose={() => setDetailModalOpen(false)} onClear={() => { setSegments({}); setDetailModalOpen(false); }} />
         </section>
         <footer><span>Bagian Riset dan Pengembangan</span><strong>BPK PENABUR Jakarta</strong><span>TP 2025/2026</span></footer>
       </main>
