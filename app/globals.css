@@ -722,3 +722,92 @@ footer strong { color: var(--navy-900); }
   .chart-detail-overlay,
   .chart-detail-modal { animation: none; }
 }
+
+
+/* Location teaching and JTM analysis */
+.location-bubble-wrap {
+  min-height: 360px;
+  padding: 2px 2px 0;
+}
+
+.location-bubble-legend {
+  position: sticky;
+  left: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 15px;
+  width: min(100%, 820px);
+  margin-bottom: 2px;
+  color: #52657b;
+  font-size: 9px;
+}
+
+.location-bubble-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.location-bubble-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.location-bubble-legend strong {
+  margin-left: auto;
+  color: #738398;
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.location-bubble-svg {
+  display: block;
+  width: 100%;
+  min-width: 760px;
+  overflow: visible;
+}
+
+.location-bubble-svg > g[role="button"] {
+  cursor: pointer;
+  outline: none;
+}
+
+.location-bubble-point {
+  stroke: #fff;
+  stroke-width: 1.5;
+  transition: opacity .15s ease, stroke-width .15s ease, filter .15s ease;
+}
+
+.location-bubble-svg > g[role="button"]:hover .location-bubble-point,
+.location-bubble-svg > g[role="button"]:focus-visible .location-bubble-point,
+.location-bubble-svg > g.is-selected .location-bubble-point {
+  opacity: 1;
+  stroke: #153f70;
+  stroke-width: 3;
+  filter: saturate(1.12);
+}
+
+.location-bubble-svg:has(g.is-selected) > g[role="button"]:not(.is-selected) {
+  opacity: .35;
+}
+
+.location-bubble-value {
+  pointer-events: none;
+  fill: #314a65;
+  font-size: 8px;
+  font-weight: 750;
+}
+
+.location-standard-line {
+  stroke: #d57828;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.location-standard-label {
+  fill: #a85f20;
+  font-size: 9px;
+  font-weight: 800;
+}
