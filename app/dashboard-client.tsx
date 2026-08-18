@@ -574,6 +574,66 @@ function GroupedStandardBars({ data, categoryGetter, categoryGroup, categories, 
   );
 }
 
+function PivotHeatmap({ data, metric, metricGroup, bucket, statuses, segments, onToggle }: {
+  data: Teacher[];
+  metric: (teacher: Teacher) => number;
+  metricGroup: string;
+  bucket: string;
+  statuses: string[];
+  segments: Segments;
+  onToggle: (group: string, value: string) => void;
+}) {
+  const threshold = Number(bucket.replace(/[<>]/g, ""));
+  const subset = data.filter((teacher) => standardBucket(metric(teacher), threshold) === bucket);
+  const taskHours = [...new Set(subset.map((teacher) => teacher.taskHours))].sort((a, b) => a - b);
+  const rows = statuses.flatMap((status) => taskHours.map((hours) => ({
+    status,
+    hours,
+    value: subset.filter((teacher) => teacher.status === status && teacher.taskHours === hours).length,
+  })));
+  const max = Math.max(...rows.map((item) => item.value), 1);
+  const totals = taskHours.map((hours) => subset.filter((teacher) => teacher.taskHours === hours).length);
+
+  function selectCell(status: string, hours: number) {
+    const hoursLabel = numericLabel(hours);
+    const allSelected = segments.status?.includes(status) && segments.taskHoursValue?.includes(hoursLabel) && segments[metricGroup]?.includes(bucket);
+    if (allSelected) {
+      onToggle("status", status);
+      onToggle("taskHoursValue", hoursLabel);
+      onToggle(metricGroup, bucket);
+      return;
+    }
+    if (!segments.status?.includes(status)) onToggle("status", status);
+    if (!segments.taskHoursValue?.includes(hoursLabel)) onToggle("taskHoursValue", hoursLabel);
+    if (!segments[metricGroup]?.includes(bucket)) onToggle(metricGroup, bucket);
+  }
+
+  return (
+    <div className="data-studio-scroll">
+      <div className="pivot-heatmap" data-export-json={JSON.stringify(rows.map((item) => ({ Status_Kontrak: item.status, Total_JP_Tugas_Tambahan_Per_Individu: item.hours, Jumlah_Tenaga_Pendidik: item.value, Kelompok_Standar: bucket })))} data-export-group={metricGroup} data-export-values={JSON.stringify([bucket])}>
+        <table>
+          <thead>
+            <tr><th rowSpan={2}>Status Kontrak</th><th colSpan={Math.max(taskHours.length, 1)}>Total JP Tugas Tambahan Per Individu / NIK</th><th rowSpan={2}>Total</th></tr>
+            <tr>{taskHours.map((hours) => <th key={hours}>{numericLabel(hours)}</th>)}</tr>
+          </thead>
+          <tbody>
+            {statuses.map((status) => {
+              const rowTotal = subset.filter((teacher) => teacher.status === status).length;
+              return <tr key={status}><th>{status}</th>{taskHours.map((hours) => {
+                const value = rows.find((item) => item.status === status && item.hours === hours)?.value || 0;
+                const intensity = value / max;
+                const selected = segments.status?.includes(status) && segments.taskHoursValue?.includes(numericLabel(hours)) && segments[metricGroup]?.includes(bucket);
+                return <td key={hours}><button type="button" className={selected ? "is-selected" : ""} disabled={value === 0} style={value ? { background: `rgba(66, 133, 244, ${0.12 + intensity * 0.88})`, color: intensity > 0.52 ? "#fff" : "#17365d" } : undefined} onClick={() => selectCell(status, hours)} title={`${status} · ${numericLabel(hours)} JP tugas tambahan · ${formatNumber(value)} guru`}>{value ? formatNumber(value) : "–"}</button></td>;
+              })}<td className="pivot-total">{formatNumber(rowTotal)}</td></tr>;
+            })}
+          </tbody>
+          <tfoot><tr><th>Total</th>{totals.map((value, index) => <td key={taskHours[index]}>{formatNumber(value)}</td>)}<td>{formatNumber(subset.length)}</td></tr></tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function Histogram({ data, metric, group, segments, onToggle }: {
   data: Teacher[];
   metric: (teacher: Teacher) => number;
@@ -840,6 +900,10 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
                 <ChartCard title="Jam Aktual dan Status Kontrak" subtitle="Batang vertikal berdampingan · warna menunjukkan Status Kontrak"><GroupedStandardBars data={workloadStandardData} categoryGetter={(teacher) => standardBucket(teacher.actual, workloadStandardThreshold)} categoryGroup={workloadActualGroup} categories={workloadStandardBuckets} seriesGetter={(teacher) => teacher.status} seriesGroup="status" series={workloadStatuses} colors={["#4285f4", "#f29a4a", "#9a78d7", "#a9bd5f", "#42b8bd"]} segments={segments} onToggle={toggleSegment} axisTitle={`Kelompok Jam Aktual ${workStandardScope}`} /></ChartCard>
                 <ChartCard title="Jam Tatap Muka - Status" subtitle="Status Kontrak pada sumbu X · warna menunjukkan kelompok standar"><GroupedStandardBars data={workloadStandardData} categoryGetter={(teacher) => teacher.status} categoryGroup="status" categories={workloadStatuses} seriesGetter={(teacher) => standardBucket(teacher.jtm, workloadStandardThreshold)} seriesGroup={workloadJtmGroup} series={workloadStandardBuckets} colors={["#4285f4", "#f29a4a", "#9a78d7"]} segments={segments} onToggle={toggleSegment} axisTitle="Status Kontrak" /></ChartCard>
                 <ChartCard title="Jam Aktual - Status" subtitle="Status Kontrak pada sumbu X · warna menunjukkan kelompok standar"><GroupedStandardBars data={workloadStandardData} categoryGetter={(teacher) => teacher.status} categoryGroup="status" categories={workloadStatuses} seriesGetter={(teacher) => standardBucket(teacher.actual, workloadStandardThreshold)} seriesGroup={workloadActualGroup} series={workloadStandardBuckets} colors={["#4285f4", "#f29a4a", "#9a78d7"]} segments={segments} onToggle={toggleSegment} axisTitle="Status Kontrak" /></ChartCard>
+                <ChartCard title={`Pivot Heatmap · JTM < ${workloadStandardThreshold} JP`} subtitle="Status Kontrak × Total JP Tugas Tambahan · klik sel untuk melihat nama karyawan" wide><PivotHeatmap data={workloadStandardData} metric={(teacher) => teacher.jtm} metricGroup={workloadJtmGroup} bucket={`<${workloadStandardThreshold}`} statuses={workloadStatuses} segments={segments} onToggle={toggleSegment} /></ChartCard>
+                <ChartCard title={`Pivot Heatmap · JTM > ${workloadStandardThreshold} JP`} subtitle="Status Kontrak × Total JP Tugas Tambahan · klik sel untuk melihat nama karyawan" wide><PivotHeatmap data={workloadStandardData} metric={(teacher) => teacher.jtm} metricGroup={workloadJtmGroup} bucket={`>${workloadStandardThreshold}`} statuses={workloadStatuses} segments={segments} onToggle={toggleSegment} /></ChartCard>
+                <ChartCard title={`Pivot Heatmap · Jam Aktual < ${workloadStandardThreshold} JP`} subtitle="Status Kontrak × Total JP Tugas Tambahan · klik sel untuk melihat nama karyawan" wide><PivotHeatmap data={workloadStandardData} metric={(teacher) => teacher.actual} metricGroup={workloadActualGroup} bucket={`<${workloadStandardThreshold}`} statuses={workloadStatuses} segments={segments} onToggle={toggleSegment} /></ChartCard>
+                <ChartCard title={`Pivot Heatmap · Jam Aktual > ${workloadStandardThreshold} JP`} subtitle="Status Kontrak × Total JP Tugas Tambahan · klik sel untuk melihat nama karyawan" wide><PivotHeatmap data={workloadStandardData} metric={(teacher) => teacher.actual} metricGroup={workloadActualGroup} bucket={`>${workloadStandardThreshold}`} statuses={workloadStatuses} segments={segments} onToggle={toggleSegment} /></ChartCard>
               </div>
             </>}
           </>}
