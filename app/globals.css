@@ -349,3 +349,49 @@ footer strong { color: var(--navy-900); }
 .data-studio-bar strong.outside { bottom: calc(100% + 6px); color: #2f73da; }
 .data-studio-column small { display: -webkit-box; align-self: start; margin-top: 5px; overflow: hidden; color: #30363d; font-size: 9px; line-height: 1.15; text-align: center; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .data-studio-axis-title { margin: 7px 0 0; color: #4f5966; font-size: 9px; text-align: center; }
+
+
+/* Tugas tambahan visual suite */
+.task-pie-layout { display: grid; min-height: 285px; grid-template-columns: minmax(210px, 1.25fr) minmax(180px, .9fr); align-items: center; gap: 24px; }
+.task-pie { width: min(100%, 290px); justify-self: center; overflow: visible; }
+.task-pie g { cursor: pointer; outline: none; transition: opacity .15s ease, filter .15s ease; }
+.task-pie g:hover, .task-pie g.is-selected { filter: saturate(1.12) brightness(.96); }
+.task-pie g.is-selected ~ g, .task-pie:has(g.is-selected) g:not(.is-selected) { opacity: .42; }
+.task-pie text { pointer-events: none; fill: #102e50; font-size: 11px; font-weight: 800; }
+.task-pie-legend { display: flex; flex-direction: column; gap: 8px; }
+.task-pie-legend button { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 8px; padding: 8px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #4f6073; font-size: 10px; cursor: pointer; text-align: left; }
+.task-pie-legend button:hover, .task-pie-legend button.is-selected { border-color: #cbdced; background: #f4f8fd; }
+.task-pie-legend i { width: 10px; height: 10px; border-radius: 3px; }
+.task-pie-legend strong { color: var(--navy-900); font-size: 10px; }
+
+.task-bubble-wrap { min-height: 285px; }
+.task-bubble-wrap svg { display: block; width: 100%; min-width: 520px; overflow: visible; }
+.task-bubble-wrap svg text { fill: #536579; font-size: 10px; }
+.task-bubble-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 14px; margin-bottom: 4px; color: #52657b; font-size: 9px; }
+.task-bubble-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.task-bubble-legend i { width: 8px; height: 8px; border-radius: 50%; }
+.task-bubble-legend strong { margin-left: auto; color: #738398; font-size: 9px; font-weight: 600; }
+.bubble-grid { stroke: #d9e1ea; stroke-width: 1; }
+.bubble-axis-title { fill: #34485f !important; font-size: 10px !important; font-weight: 700; }
+.task-bubble { cursor: pointer; stroke: #fff; stroke-width: 1.5; transition: opacity .15s ease, stroke-width .15s ease; }
+.task-bubble:hover, .task-bubble.is-selected { opacity: 1; stroke: #163f70; stroke-width: 3; }
+
+.grouped-task-chart { display: flex; min-height: 330px; flex-direction: column; padding-top: 2px; }
+.grouped-task-legend { display: flex; min-height: 28px; align-items: center; justify-content: center; gap: 16px; color: #52657b; font-size: 10px; }
+.grouped-task-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.grouped-task-legend i { width: 23px; height: 9px; border-radius: 2px; }
+.grouped-task-bars { display: flex; height: 260px; align-items: stretch; border-bottom: 1px solid #b8c1cc; }
+.grouped-task-category { display: grid; min-width: 68px; flex: 1; grid-template-rows: 1fr 48px; padding: 0 5px; }
+.grouped-task-bar-set { display: flex; min-height: 0; align-items: flex-end; justify-content: center; gap: 3px; padding-top: 24px; }
+.grouped-task-bar { position: relative; width: min(25px, 24%); min-height: 3px; padding: 0; border: 0; border-radius: 2px 2px 0 0; cursor: pointer; transition: filter .15s ease, opacity .15s ease; }
+.grouped-task-bar:hover, .grouped-task-bar.is-selected { filter: saturate(1.15) brightness(.93); outline: 2px solid rgba(26,67,116,.28); outline-offset: 1px; }
+.grouped-task-bar.is-empty { min-height: 0; cursor: default; }
+.grouped-task-bar strong { position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); color: #376da9; font-size: 8px; font-weight: 800; white-space: nowrap; }
+.grouped-task-category small { display: -webkit-box; align-self: start; margin-top: 6px; overflow: hidden; color: #35485e; font-size: 9px; line-height: 1.15; text-align: center; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+
+@media (max-width: 760px) {
+  .task-pie-layout { grid-template-columns: 1fr; gap: 8px; }
+  .task-pie { max-width: 250px; }
+  .task-bubble-wrap { overflow-x: auto; }
+  .task-bubble-legend strong { width: 100%; margin-left: 0; }
+}
