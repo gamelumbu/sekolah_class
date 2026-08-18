@@ -556,15 +556,8 @@ function GroupedStandardBars({ data, categoryGetter, categoryGroup, categories, 
             const value = rows.find((item) => item.category === category && item.series === seriesLabel)?.value || 0;
             const selected = segments[categoryGroup]?.includes(category) && segments[seriesGroup]?.includes(seriesLabel);
             return <button type="button" key={seriesLabel} className={`grouped-task-bar ${selected ? "is-selected" : ""} ${value === 0 ? "is-empty" : ""}`} style={{ height: `${value ? Math.max(value / max * 100, 2) : 0}%`, background: colors[index % colors.length] }} disabled={value === 0} onClick={() => {
-              const categorySelected = segments[categoryGroup]?.includes(category);
-              const seriesSelected = segments[seriesGroup]?.includes(seriesLabel);
-              if (categorySelected && seriesSelected) {
-                onToggle(categoryGroup, category);
-                onToggle(seriesGroup, seriesLabel);
-              } else {
-                if (!categorySelected) onToggle(categoryGroup, category);
-                if (!seriesSelected) onToggle(seriesGroup, seriesLabel);
-              }
+              onToggle(categoryGroup, category);
+              onToggle(seriesGroup, seriesLabel);
             }} title={`${category} · ${seriesLabel} · ${formatNumber(value)} guru`}><strong>{value ? formatNumber(value) : ""}</strong></button>;
           })}</div><small>{category}</small></div>)}
         </div>
@@ -595,17 +588,9 @@ function PivotHeatmap({ data, metric, metricGroup, bucket, statuses, segments, o
   const totals = taskHours.map((hours) => subset.filter((teacher) => teacher.taskHours === hours).length);
 
   function selectCell(status: string, hours: number) {
-    const hoursLabel = numericLabel(hours);
-    const allSelected = segments.status?.includes(status) && segments.taskHoursValue?.includes(hoursLabel) && segments[metricGroup]?.includes(bucket);
-    if (allSelected) {
-      onToggle("status", status);
-      onToggle("taskHoursValue", hoursLabel);
-      onToggle(metricGroup, bucket);
-      return;
-    }
-    if (!segments.status?.includes(status)) onToggle("status", status);
-    if (!segments.taskHoursValue?.includes(hoursLabel)) onToggle("taskHoursValue", hoursLabel);
-    if (!segments[metricGroup]?.includes(bucket)) onToggle(metricGroup, bucket);
+    onToggle("status", status);
+    onToggle("taskHoursValue", numericLabel(hours));
+    onToggle(metricGroup, bucket);
   }
 
   return (
@@ -942,6 +927,8 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
   const [filters, setFilters] = useState<FilterState>({ year: [], groupJenjang: [], jenjang: [], program: [], teacherCategory: [], school: [], status: [], individual: [] });
   const [segments, setSegments] = useState<Segments>({});
   const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const pendingSegmentSelection = useRef<Segments>({});
+  const segmentFlushScheduled = useRef(false);
   const [workTab, setWorkTab] = useState("Tatap Muka");
   const [workStandardScope, setWorkStandardScope] = useState<"Nasional" | "Internasional">("Nasional");
   const [taskTab, setTaskTab] = useState("Umum");
@@ -976,7 +963,18 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
     setSegments({});
   }
   function toggleLevel(level: string) { updateFilter("jenjang", filters.jenjang.includes(level) ? filters.jenjang.filter((item) => item !== level) : [...filters.jenjang, level]); }
-  function toggleSegment(group: string, value: string) { setSegments((current) => { const values = current[group] || []; return { ...current, [group]: values.includes(value) ? values.filter((item) => item !== value) : [...values, value] }; }); setDetailModalOpen(true); }
+  function toggleSegment(group: string, value: string) {
+    pendingSegmentSelection.current[group] = [value];
+    if (segmentFlushScheduled.current) return;
+    segmentFlushScheduled.current = true;
+    queueMicrotask(() => {
+      const nextSelection = pendingSegmentSelection.current;
+      pendingSegmentSelection.current = {};
+      segmentFlushScheduled.current = false;
+      setSegments(nextSelection);
+      setDetailModalOpen(true);
+    });
+  }
   function navigate(page: string) { setActivePage(page); setSegments({}); setMobileNav(false); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function resetAll() { setFilters({ year: [], groupJenjang: [], jenjang: [], program: [], teacherCategory: [], school: [], status: [], individual: [] }); setWorkStandardScope("Nasional"); setStandard(24); setSegments({}); }
 
