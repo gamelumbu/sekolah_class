@@ -127,6 +127,12 @@ function bucketHours(value: number) {
   return ">30";
 }
 
+function standardBucket(value: number, threshold: number) {
+  if (value < threshold) return `<${threshold}`;
+  if (value === threshold) return String(threshold);
+  return `>${threshold}`;
+}
+
 function matchesSegment(teacher: Teacher, group: string, value: string, standard: number) {
   if (group === "jenjang") return teacher.jenjang === value;
   if (group === "program") return teacher.program === value;
@@ -153,6 +159,10 @@ function matchesSegment(teacher: Teacher, group: string, value: string, standard
   if (group === "jtmValue") return numericLabel(teacher.jtm) === value;
   if (group === "taskHoursValue") return numericLabel(teacher.taskHours) === value;
   if (group === "actualValue") return numericLabel(teacher.actual) === value;
+  if (group === "jtmStandard24") return standardBucket(teacher.jtm, 24) === value;
+  if (group === "actualStandard24") return standardBucket(teacher.actual, 24) === value;
+  if (group === "jtmStandard30") return standardBucket(teacher.jtm, 30) === value;
+  if (group === "actualStandard30") return standardBucket(teacher.actual, 30) === value;
   if (group === "scenario") {
     return complianceAtStandard(teacher, standard) === value;
   }
@@ -518,6 +528,52 @@ function GroupedTaskBars({ data, categoryGetter, categoryGroup, categoryOrder, n
   );
 }
 
+function GroupedStandardBars({ data, categoryGetter, categoryGroup, categories, seriesGetter, seriesGroup, series, colors, segments, onToggle, axisTitle }: {
+  data: Teacher[];
+  categoryGetter: (teacher: Teacher) => string;
+  categoryGroup: string;
+  categories: string[];
+  seriesGetter: (teacher: Teacher) => string;
+  seriesGroup: string;
+  series: string[];
+  colors: string[];
+  segments: Segments;
+  onToggle: (group: string, value: string) => void;
+  axisTitle: string;
+}) {
+  const rows = categories.flatMap((category) => series.map((seriesLabel) => ({
+    category,
+    series: seriesLabel,
+    value: data.filter((teacher) => categoryGetter(teacher) === category && seriesGetter(teacher) === seriesLabel).length,
+  })));
+  const max = Math.max(...rows.map((item) => item.value), 1);
+  return (
+    <div className="data-studio-scroll">
+      <div className="grouped-task-chart" style={{ minWidth: Math.max(categories.length * 165, 720) }} data-export-json={JSON.stringify(rows.map((item) => ({ Kategori: item.category, Seri: item.series, Jumlah_Tenaga_Pendidik: item.value })))} data-export-group={categoryGroup} data-export-values={JSON.stringify(categories)}>
+        <div className="grouped-task-legend">{series.map((item, index) => <span key={item} className={segments[seriesGroup]?.includes(item) ? "is-selected" : ""}><i style={{ background: colors[index % colors.length] }} />{item}</span>)}</div>
+        <div className="grouped-task-bars">
+          {categories.map((category) => <div className="grouped-task-category" key={category}><div className="grouped-task-bar-set">{series.map((seriesLabel, index) => {
+            const value = rows.find((item) => item.category === category && item.series === seriesLabel)?.value || 0;
+            const selected = segments[categoryGroup]?.includes(category) && segments[seriesGroup]?.includes(seriesLabel);
+            return <button type="button" key={seriesLabel} className={`grouped-task-bar ${selected ? "is-selected" : ""} ${value === 0 ? "is-empty" : ""}`} style={{ height: `${value ? Math.max(value / max * 100, 2) : 0}%`, background: colors[index % colors.length] }} disabled={value === 0} onClick={() => {
+              const categorySelected = segments[categoryGroup]?.includes(category);
+              const seriesSelected = segments[seriesGroup]?.includes(seriesLabel);
+              if (categorySelected && seriesSelected) {
+                onToggle(categoryGroup, category);
+                onToggle(seriesGroup, seriesLabel);
+              } else {
+                if (!categorySelected) onToggle(categoryGroup, category);
+                if (!seriesSelected) onToggle(seriesGroup, seriesLabel);
+              }
+            }} title={`${category} · ${seriesLabel} · ${formatNumber(value)} guru`}><strong>{value ? formatNumber(value) : ""}</strong></button>;
+          })}</div><small>{category}</small></div>)}
+        </div>
+        <p className="data-studio-axis-title">{axisTitle}</p>
+      </div>
+    </div>
+  );
+}
+
 function Histogram({ data, metric, group, segments, onToggle }: {
   data: Teacher[];
   metric: (teacher: Teacher) => number;
@@ -688,6 +744,7 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
   const [filters, setFilters] = useState<FilterState>({ year: [], groupJenjang: [], jenjang: [], program: [], teacherCategory: [], school: [], status: [], individual: [] });
   const [segments, setSegments] = useState<Segments>({});
   const [workTab, setWorkTab] = useState("Tatap Muka");
+  const [workStandardScope, setWorkStandardScope] = useState<"Nasional" | "Internasional">("Nasional");
   const [taskTab, setTaskTab] = useState("Umum");
   const [orgTab, setOrgTab] = useState("Sekolah");
   const [simTab, setSimTab] = useState("Standar JP");
@@ -718,12 +775,21 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
 
   const summaryData = baseData.filter((teacher) => teacher.statusIndividu === "Non-Kasek");
   const summaryFilteredData = filterBySegments(summaryData, segments, standard);
+  const workloadStandardThreshold = workStandardScope === "Internasional" ? 30 : 24;
+  const workloadStandardData = baseData;
+  const workloadStandardFilteredData = filterBySegments(workloadStandardData, segments, standard);
+  const workloadStandardBuckets = [`<${workloadStandardThreshold}`, String(workloadStandardThreshold), `>${workloadStandardThreshold}`];
+  const workloadJtmGroup = workloadStandardThreshold === 30 ? "jtmStandard30" : "jtmStandard24";
+  const workloadActualGroup = workloadStandardThreshold === 30 ? "actualStandard30" : "actualStandard24";
+  const workloadStatuses = ["PKWTT", "PKWT Penuh Waktu", "PKWT Pensiun", "PKWT Paruh Waktu", "PKWT Ekspatriat"].filter((status) => workloadStandardData.some((teacher) => teacher.status === status));
   const avgActual = summaryData.length ? summaryData.reduce((sum, teacher) => sum + teacher.actual, 0) / summaryData.length : 0;
   const usesNonKasekPopulation = activePage === "summary" || activePage === "workload" || (activePage === "organization" && orgTab !== "Status");
-  const activeRecordData = usesNonKasekPopulation ? summaryFilteredData : filteredData;
+  let activeRecordData = usesNonKasekPopulation ? summaryFilteredData : filteredData;
+  if (activePage === "workload" && workTab === "Standar & Status") activeRecordData = workloadStandardFilteredData;
   const teacherCategoryCount = (category: string) => summaryData.filter((teacher) => teacher.teacherCategory === category).length;
   let pageData = filteredData;
   if (usesNonKasekPopulation) pageData = summaryFilteredData;
+  if (activePage === "workload" && workTab === "Standar & Status") pageData = workloadStandardFilteredData;
   if (activePage === "tasks" && taskTab !== "Umum") pageData = filteredData.filter((teacher) => taskTab === "Wakasek" ? teacher.isWakasek : taskTab === "BK" ? teacher.isBK : teacher.statusIndividu === "Kasek");
   const taskChartData = taskTab === "Umum" ? baseData : pageData;
 
@@ -758,7 +824,25 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
 
           {activePage === "summary" && <><div className="kpi-grid"><KpiCard label="Total Guru" value={formatNumber(summaryData.length)} helper="Non-Kasek · sesuai Data Studio" tone="navy" /><KpiCard label="Guru Nasional" value={formatNumber(teacherCategoryCount("Guru Nasional"))} helper="Kategori Guru Final" /><KpiCard label="Guru Bilingual" value={formatNumber(teacherCategoryCount("Guru Bilingual"))} helper="Kategori Guru Final" tone="gold" /><KpiCard label="Guru Internasional" value={formatNumber(teacherCategoryCount("Guru Internasional"))} helper="Kategori Guru Final" tone="green" /><KpiCard label="Di Bawah Standar" value={formatNumber(summaryData.filter((teacher) => isBelowStandard(teacher)).length)} helper="Khusus guru Non-Kasek" tone="red" /></div><div className="chart-grid"><ChartCard title="Jumlah Guru per Jenjang" subtitle="Khusus Non-Kasek · klik batang untuk melihat detail"><ColumnChart data={countBy(summaryData, (teacher) => teacher.jenjang)} group="jenjang" segments={segments} onToggle={toggleSegment} /></ChartCard><ChartCard title="Kepatuhan Jam Aktual Guru" subtitle="Non-Kasek · batang vertikal berdampingan per jenjang"><GroupedComplianceBars data={summaryData} segments={segments} onToggle={toggleSegment} /></ChartCard><ChartCard title="Komposisi Kategori Guru" subtitle="Kategori Guru Final · khusus Non-Kasek"><DonutChart data={countBy(summaryData, (teacher) => teacher.teacherCategory)} group="teacherCategory" segments={segments} onToggle={toggleSegment} /></ChartCard><ChartCard title="Sekolah dengan Guru Terbanyak" subtitle="Non-Kasek · 10 unit teratas"><HorizontalBars data={countBy(summaryData, (teacher) => teacher.school)} group="school" segments={segments} onToggle={toggleSegment} /></ChartCard></div></>}
 
-          {activePage === "workload" && <><div className="tab-row">{["Tatap Muka", "Tugas Tambahan", "Jam Aktual", "Kepatuhan"].map((tab) => <button className={workTab === tab ? "active" : ""} key={tab} onClick={() => { setWorkTab(tab); setSegments({}); }}>{tab}</button>)}</div><div className="kpi-grid compact"><KpiCard label="Rata-rata Tatap Muka" value={`${formatNumber(summaryData.reduce((s, t) => s + t.jtm, 0) / Math.max(summaryData.length, 1), 1)} JP`} helper="Total JP Tatap Muka Per Individu" /><KpiCard label="Rata-rata Tugas Tambahan" value={`${formatNumber(summaryData.reduce((s, t) => s + t.taskHours, 0) / Math.max(summaryData.length, 1), 1)} JP`} helper="Total JP Tugas Tambahan Per Individu" tone="gold" /><KpiCard label="Rata-rata Jam Aktual" value={`${formatNumber(avgActual, 1)} JP`} helper="Total Jam Aktual Final Per Individu" tone="green" /><KpiCard label="Di Bawah Standar" value={formatNumber(summaryData.filter((teacher) => isBelowStandard(teacher)).length)} helper="Guru Non-Kasek · Internasional 30 JP" tone="red" /></div><div className="chart-grid">{workTab !== "Kepatuhan" && <ChartCard title={workTab === "Tatap Muka" ? "Total Jam Tatap Muka" : workTab === "Tugas Tambahan" ? "Total Tugas Jam Tambahan" : "Total Jam Aktual"} subtitle={workTab === "Tatap Muka" ? "Jumlah guru menurut Total JP Tatap Muka Per Individu" : workTab === "Tugas Tambahan" ? "Jumlah guru menurut Total JP Tugas Tambahan Per Individu" : "Jumlah guru menurut Total Jam Aktual Final Per Individu"} wide><DataStudioBarChart data={countByNumber(summaryData, workTab === "Tatap Muka" ? (teacher) => teacher.jtm : workTab === "Tugas Tambahan" ? (teacher) => teacher.taskHours : (teacher) => teacher.actual)} group={workTab === "Tatap Muka" ? "jtmValue" : workTab === "Tugas Tambahan" ? "taskHoursValue" : "actualValue"} segments={segments} onToggle={toggleSegment} axisTitle={workTab === "Tatap Muka" ? "Total JP Tatap Muka Per Individu" : workTab === "Tugas Tambahan" ? "Total JP Tugas Tambahan Per Individu" : "Total Jam Aktual Final Per Individu"} /></ChartCard>}{workTab !== "Kepatuhan" && <ChartCard title={`Rata-rata ${workTab} per Jenjang`} subtitle="Khusus guru Non-Kasek · dalam JP"><HorizontalBars data={averageBy(summaryData, (teacher) => teacher.jenjang, workTab === "Tatap Muka" ? (teacher) => teacher.jtm : workTab === "Tugas Tambahan" ? (teacher) => teacher.taskHours : (teacher) => teacher.actual)} group="jenjang" segments={segments} onToggle={toggleSegment} valueSuffix=" JP" maxItems={6} /></ChartCard>}{workTab === "Kepatuhan" && <ChartCard title="Kepatuhan per Jenjang" subtitle="Guru Non-Kasek · standar 24 JP, Internasional 30 JP" wide><GroupedComplianceBars data={summaryData} segments={segments} onToggle={toggleSegment} /></ChartCard>}<ChartCard title="Hubungan JTM dan Jam Aktual" subtitle="Guru Non-Kasek · klik titik untuk memilih individu" wide={workTab === "Kepatuhan"}><ScatterPlot data={summaryData} segments={segments} onToggle={toggleSegment} /></ChartCard></div></>}
+          {activePage === "workload" && <>
+            <div className="tab-row">{["Tatap Muka", "Tugas Tambahan", "Jam Aktual", "Kepatuhan", "Standar & Status"].map((tab) => <button className={workTab === tab ? "active" : ""} key={tab} onClick={() => { setWorkTab(tab); setSegments({}); }}>{tab}</button>)}</div>
+            {workTab !== "Standar & Status" ? <>
+              <div className="kpi-grid compact"><KpiCard label="Rata-rata Tatap Muka" value={`${formatNumber(summaryData.reduce((s, t) => s + t.jtm, 0) / Math.max(summaryData.length, 1), 1)} JP`} helper="Total JP Tatap Muka Per Individu" /><KpiCard label="Rata-rata Tugas Tambahan" value={`${formatNumber(summaryData.reduce((s, t) => s + t.taskHours, 0) / Math.max(summaryData.length, 1), 1)} JP`} helper="Total JP Tugas Tambahan Per Individu" tone="gold" /><KpiCard label="Rata-rata Jam Aktual" value={`${formatNumber(avgActual, 1)} JP`} helper="Total Jam Aktual Final Per Individu" tone="green" /><KpiCard label="Di Bawah Standar" value={formatNumber(summaryData.filter((teacher) => isBelowStandard(teacher)).length)} helper="Guru Non-Kasek · Internasional 30 JP" tone="red" /></div>
+              <div className="chart-grid">{workTab !== "Kepatuhan" && <ChartCard title={workTab === "Tatap Muka" ? "Total Jam Tatap Muka" : workTab === "Tugas Tambahan" ? "Total Tugas Jam Tambahan" : "Total Jam Aktual"} subtitle={workTab === "Tatap Muka" ? "Jumlah guru menurut Total JP Tatap Muka Per Individu" : workTab === "Tugas Tambahan" ? "Jumlah guru menurut Total JP Tugas Tambahan Per Individu" : "Jumlah guru menurut Total Jam Aktual Final Per Individu"} wide><DataStudioBarChart data={countByNumber(summaryData, workTab === "Tatap Muka" ? (teacher) => teacher.jtm : workTab === "Tugas Tambahan" ? (teacher) => teacher.taskHours : (teacher) => teacher.actual)} group={workTab === "Tatap Muka" ? "jtmValue" : workTab === "Tugas Tambahan" ? "taskHoursValue" : "actualValue"} segments={segments} onToggle={toggleSegment} axisTitle={workTab === "Tatap Muka" ? "Total JP Tatap Muka Per Individu" : workTab === "Tugas Tambahan" ? "Total JP Tugas Tambahan Per Individu" : "Total Jam Aktual Final Per Individu"} /></ChartCard>}{workTab !== "Kepatuhan" && <ChartCard title={`Rata-rata ${workTab} per Jenjang`} subtitle="Khusus guru Non-Kasek · dalam JP"><HorizontalBars data={averageBy(summaryData, (teacher) => teacher.jenjang, workTab === "Tatap Muka" ? (teacher) => teacher.jtm : workTab === "Tugas Tambahan" ? (teacher) => teacher.taskHours : (teacher) => teacher.actual)} group="jenjang" segments={segments} onToggle={toggleSegment} valueSuffix=" JP" maxItems={6} /></ChartCard>}{workTab === "Kepatuhan" && <ChartCard title="Kepatuhan per Jenjang" subtitle="Guru Non-Kasek · standar 24 JP, Internasional 30 JP" wide><GroupedComplianceBars data={summaryData} segments={segments} onToggle={toggleSegment} /></ChartCard>}<ChartCard title="Hubungan JTM dan Jam Aktual" subtitle="Guru Non-Kasek · klik titik untuk memilih individu" wide={workTab === "Kepatuhan"}><ScatterPlot data={summaryData} segments={segments} onToggle={toggleSegment} /></ChartCard></div>
+            </> : <>
+              <div className="tab-row">{(["Nasional", "Internasional"] as const).map((scope) => <button className={workStandardScope === scope ? "active" : ""} key={scope} onClick={() => { setWorkStandardScope(scope); setSegments({}); }}>{scope} · {scope === "Internasional" ? "30 JP" : "24 JP"}</button>)}</div>
+              <div className="kpi-grid compact"><KpiCard label="Total Guru" value={formatNumber(workloadStandardData.length)} helper="Mengikuti filter Status Individu" tone="navy" /><KpiCard label={`JTM < ${workloadStandardThreshold} JP`} value={formatNumber(workloadStandardData.filter((teacher) => teacher.jtm < workloadStandardThreshold).length)} helper="Di bawah ambang tatap muka" tone="red" /><KpiCard label={`JTM = ${workloadStandardThreshold} JP`} value={formatNumber(workloadStandardData.filter((teacher) => teacher.jtm === workloadStandardThreshold).length)} helper="Tepat pada ambang tatap muka" tone="gold" /><KpiCard label={`Aktual < ${workloadStandardThreshold} JP`} value={formatNumber(workloadStandardData.filter((teacher) => teacher.actual < workloadStandardThreshold).length)} helper="Di bawah ambang jam aktual" tone="red" /></div>
+              <div className="standard-policy-note"><strong>Ambang analisis:</strong><span>{workStandardScope === "Internasional" ? "Parameter Internasional" : "Parameter Nasional"}</span><i aria-hidden="true" /><span>Seluruh data aktif dibandingkan dengan {workloadStandardThreshold} JP</span></div>
+              <div className="chart-grid">
+                <ChartCard title="Jam Tatap Muka" subtitle={`Jumlah guru menurut kelompok <${workloadStandardThreshold}, ${workloadStandardThreshold}, dan >${workloadStandardThreshold} JP`}><DataStudioBarChart data={workloadStandardBuckets.map((label) => ({ label, value: workloadStandardData.filter((teacher) => standardBucket(teacher.jtm, workloadStandardThreshold) === label).length }))} group={workloadJtmGroup} segments={segments} onToggle={toggleSegment} axisTitle={`Kelompok JP Tatap Muka ${workStandardScope}`} /></ChartCard>
+                <ChartCard title="Jam Tatap Muka dan Status Kontrak" subtitle="Batang vertikal berdampingan · warna menunjukkan Status Kontrak"><GroupedStandardBars data={workloadStandardData} categoryGetter={(teacher) => standardBucket(teacher.jtm, workloadStandardThreshold)} categoryGroup={workloadJtmGroup} categories={workloadStandardBuckets} seriesGetter={(teacher) => teacher.status} seriesGroup="status" series={workloadStatuses} colors={["#4285f4", "#f29a4a", "#9a78d7", "#a9bd5f", "#42b8bd"]} segments={segments} onToggle={toggleSegment} axisTitle={`Kelompok JP Tatap Muka ${workStandardScope}`} /></ChartCard>
+                <ChartCard title="Jam Aktual" subtitle={`Jumlah guru menurut kelompok <${workloadStandardThreshold}, ${workloadStandardThreshold}, dan >${workloadStandardThreshold} JP`}><DataStudioBarChart data={workloadStandardBuckets.map((label) => ({ label, value: workloadStandardData.filter((teacher) => standardBucket(teacher.actual, workloadStandardThreshold) === label).length }))} group={workloadActualGroup} segments={segments} onToggle={toggleSegment} axisTitle={`Kelompok Jam Aktual ${workStandardScope}`} /></ChartCard>
+                <ChartCard title="Jam Aktual dan Status Kontrak" subtitle="Batang vertikal berdampingan · warna menunjukkan Status Kontrak"><GroupedStandardBars data={workloadStandardData} categoryGetter={(teacher) => standardBucket(teacher.actual, workloadStandardThreshold)} categoryGroup={workloadActualGroup} categories={workloadStandardBuckets} seriesGetter={(teacher) => teacher.status} seriesGroup="status" series={workloadStatuses} colors={["#4285f4", "#f29a4a", "#9a78d7", "#a9bd5f", "#42b8bd"]} segments={segments} onToggle={toggleSegment} axisTitle={`Kelompok Jam Aktual ${workStandardScope}`} /></ChartCard>
+                <ChartCard title="Jam Tatap Muka - Status" subtitle="Status Kontrak pada sumbu X · warna menunjukkan kelompok standar"><GroupedStandardBars data={workloadStandardData} categoryGetter={(teacher) => teacher.status} categoryGroup="status" categories={workloadStatuses} seriesGetter={(teacher) => standardBucket(teacher.jtm, workloadStandardThreshold)} seriesGroup={workloadJtmGroup} series={workloadStandardBuckets} colors={["#4285f4", "#f29a4a", "#9a78d7"]} segments={segments} onToggle={toggleSegment} axisTitle="Status Kontrak" /></ChartCard>
+                <ChartCard title="Jam Aktual - Status" subtitle="Status Kontrak pada sumbu X · warna menunjukkan kelompok standar"><GroupedStandardBars data={workloadStandardData} categoryGetter={(teacher) => teacher.status} categoryGroup="status" categories={workloadStatuses} seriesGetter={(teacher) => standardBucket(teacher.actual, workloadStandardThreshold)} seriesGroup={workloadActualGroup} series={workloadStandardBuckets} colors={["#4285f4", "#f29a4a", "#9a78d7"]} segments={segments} onToggle={toggleSegment} axisTitle="Status Kontrak" /></ChartCard>
+              </div>
+            </>}
+          </>}
 
           {activePage === "tasks" && <>
             <div className="tab-row">{["Umum", "Wakasek", "BK", "Kasek"].map((tab) => <button className={taskTab === tab ? "active" : ""} key={tab} onClick={() => { setTaskTab(tab); setSegments(tab === "Umum" ? {} : { role: [tab] }); }}>{tab}</button>)}</div>
