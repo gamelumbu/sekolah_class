@@ -484,7 +484,7 @@ function TaskBubbleChart({ data, segments, onToggle }: { data: Teacher[]; segmen
   const maxHours = Math.max(...points.map((item) => item.hours), 18);
   const maxValue = Math.max(...points.map((item) => item.value), 1);
   const colors = ["#EBCB7B", "#2F6EB5", "#7657C8", "#77A65D"];
-  const left = 58, right = 20, top = 24, bottom = 48, width = 650, height = 320;
+  const left = 58, right = 40, top = 40, bottom = 52, width = 650, height = 320;
   const plotWidth = width - left - right, plotHeight = height - top - bottom;
   const x = (value: number) => left + value / maxHours * plotWidth;
   const y = (value: number) => top + (3 - Math.min(value, 3)) / 3 * plotHeight;
@@ -1124,7 +1124,7 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
           {activePage === "tasks" && <>
             <div className="tab-row">{["Umum", "Wakasek", "BK", "Kasek"].map((tab) => <button className={taskTab === tab ? "active" : ""} key={tab} onClick={() => { setTaskTab(tab); setSegments(tab === "Umum" ? {} : { role: [tab] }); }}>{tab}</button>)}</div>
             <div className="kpi-grid compact"><KpiCard label="Dengan Tugas Tambahan" value={formatNumber(pageData.filter((teacher) => teacher.taskHours > 0).length)} helper="Memiliki konversi jam" tone="gold" /><KpiCard label="Tanpa Tugas Tambahan" value={formatNumber(pageData.filter((teacher) => teacher.taskHours === 0).length)} helper="Tidak ada konversi tugas" /><KpiCard label="Rata-rata Jam Tugas" value={`${formatNumber(pageData.reduce((s, t) => s + t.taskHours, 0) / Math.max(pageData.length, 1), 1)} JP`} helper={`Kelompok ${taskTab}`} tone="green" /><KpiCard label="Lebih dari Satu Tugas" value={formatNumber(pageData.filter((teacher) => teacher.taskCount > 1).length)} helper="Perlu pemantauan beban" tone="red" /></div>
-            {taskTab === "Umum" ? <div className="chart-grid">
+            {taskTab === "Umum" ? <div className="chart-grid task-chart-grid">
               <ChartCard title="TENAGA PENDIDIK BERDASARKAN TUGAS TAMBAHAN" subtitle="Satu NIK per tenaga pendidik"><TaskPresencePie data={taskChartData} segments={segments} onToggle={toggleSegment} /></ChartCard>
               <ChartCard title="Jumlah Tenaga Pendidik berdasarkan Tugas Tambahan" subtitle="Posisi: jam dan jumlah jabatan · ukuran: jumlah guru"><TaskBubbleChart data={taskChartData} segments={segments} onToggle={toggleSegment} /></ChartCard>
               <ChartCard title="Total Jam Tatap Muka" subtitle="Jumlah tenaga pendidik menurut Total JP Tatap Muka Per Individu" wide><DataStudioBarChart data={countByNumber(taskChartData, (teacher) => teacher.jtm)} group="jtmValue" segments={segments} onToggle={toggleSegment} axisTitle="Total JP Tatap Muka Per Individu" /></ChartCard>
@@ -1132,7 +1132,7 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
               <ChartCard title="Jumlah Jabatan Tambahan" subtitle="Jumlah NIK unik per banyaknya jabatan"><DataStudioBarChart data={countByNumber(taskChartData, (teacher) => teacher.taskCount)} group="taskCount" segments={segments} onToggle={toggleSegment} axisTitle="Jumlah Jabatan Tambahan Per Individu" /></ChartCard>
               <ChartCard title="Jenis Tugas Tambahan" subtitle="10 jenis tugas terbanyak"><HorizontalBars data={countBy(taskChartData.flatMap((teacher) => teacher.tasks.map((task) => ({ task }))), (item) => item.task)} group="taskType" segments={segments} onToggle={toggleSegment} maxItems={10} /></ChartCard>
               <ChartCard title="Status Kontrak dan Jumlah Jabatan Tambahan" subtitle="Grouped vertical bars non-stacked · seluruh NIK unik" wide><GroupedTaskBars data={taskChartData} categoryGetter={(teacher) => teacher.status} categoryGroup="status" categoryOrder={["PKWTT", "PKWT Penuh Waktu", "PKWT Pensiun", "PKWT Paruh Waktu", "PKWT Ekspatriat"]} series={[0, 1, 2, 3]} segments={segments} onToggle={toggleSegment} axisTitle="Status Kontrak" /></ChartCard>
-            </div> : <div className="chart-grid">
+            </div> : <div className="chart-grid task-chart-grid">
               <ChartCard title={`Jenis Tugas Tambahan - ${taskTab}`} subtitle="Klik jenis tugas untuk melihat nama karyawan"><HorizontalBars data={countBy(taskChartData.flatMap((teacher) => teacher.tasks.map((task) => ({ task }))), (item) => item.task)} group="taskType" segments={segments} onToggle={toggleSegment} maxItems={10} /></ChartCard>
               <ChartCard title="Jumlah Tugas per Individu" subtitle="Distribusi banyaknya tugas"><ColumnChart data={countBy(taskChartData, (teacher) => String(teacher.taskCount))} group="taskCount" segments={segments} onToggle={toggleSegment} /></ChartCard>
               <ChartCard title="Jam Tugas Tambahan" subtitle="Distribusi konversi jam"><Histogram data={taskChartData} metric={(teacher) => teacher.taskHours} group="taskBucket" segments={segments} onToggle={toggleSegment} /></ChartCard>
