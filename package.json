@@ -7,6 +7,8 @@
   },
   "scripts": {
     "dev": "next dev",
+    "validate:data": "node scripts/validate-teacher-data.mjs",
+    "prebuild": "npm run validate:data",
     "build": "next build",
     "start": "next start",
     "lint": "eslint ."
