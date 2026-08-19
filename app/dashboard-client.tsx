@@ -53,6 +53,7 @@ const ChartExportContext = createContext<ChartExportContextValue>({ people: [], 
 const ALL = "Semua";
 const palette = ["#2F6EB5", "#E0A72B", "#7657C8", "#2F8A68", "#D96C5F", "#4A91A8"];
 const JENJANG_ORDER = ["TK", "SD", "SMP", "SLTA", "Internasional"];
+const NATIONAL_LEVELS = ["TK", "SD", "SMP", "SLTA"];
 const complianceColors: Record<string, string> = {
   "Di bawah standar": "#CF4C55",
   "Tepat standar": "#E0A72B",
@@ -1022,6 +1023,7 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
   const segmentFlushScheduled = useRef(false);
   const [workTab, setWorkTab] = useState("Tatap Muka");
   const [workStandardScope, setWorkStandardScope] = useState<"Nasional" | "Internasional">("Nasional");
+  const [standardFilterMode, setStandardFilterMode] = useState<"Gabungan" | "Nasional" | "Internasional">("Gabungan");
   const [taskTab, setTaskTab] = useState("Umum");
   const [orgTab, setOrgTab] = useState("Sekolah");
   const [simTab, setSimTab] = useState("Standar JP");
@@ -1040,20 +1042,39 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
     return () => window.removeEventListener("dashboard-scenario-filter", selectScenario);
   }, []);
 
-  const options = useMemo(() => ({ years: unique(teachers.map((teacher) => teacher.year)), groupLevels: ["TK", "SD", "SMP", "SLTA", "Primary", "Secondary"].filter((group) => teachers.some((teacher) => teacher.groupJenjang === group)), levels: JENJANG_ORDER, programs: unique(teachers.map((teacher) => teacher.program)), teacherCategories: ["Guru Nasional", "Guru Bilingual", "Guru Internasional"].filter((category) => teachers.some((teacher) => teacher.statusIndividu === "Non-Kasek" && teacher.teacherCategory === category)), schools: unique(teachers.filter((teacher) => (filters.groupJenjang.length === 0 || filters.groupJenjang.includes(teacher.groupJenjang)) && (filters.jenjang.length === 0 || filters.jenjang.includes(teacher.jenjang))).map((teacher) => teacher.school)), statuses: unique(teachers.map((teacher) => teacher.status)) }), [filters.groupJenjang, filters.jenjang, teachers]);
-  const baseData = useMemo(() => teachers.filter((teacher) => (filters.year.length === 0 || filters.year.includes(teacher.year)) && (filters.groupJenjang.length === 0 || filters.groupJenjang.includes(teacher.groupJenjang)) && (filters.jenjang.length === 0 || filters.jenjang.includes(teacher.jenjang)) && (filters.program.length === 0 || filters.program.includes(teacher.program)) && (filters.teacherCategory.length === 0 || (teacher.statusIndividu === "Non-Kasek" && filters.teacherCategory.includes(teacher.teacherCategory))) && (filters.school.length === 0 || filters.school.includes(teacher.school)) && (filters.status.length === 0 || filters.status.includes(teacher.status)) && (filters.individual.length === 0 || filters.individual.includes(teacher.statusIndividu))), [filters, teachers]);
+  const options = useMemo(() => ({ years: unique(teachers.map((teacher) => teacher.year)), groupLevels: ["TK", "SD", "SMP", "SLTA", "Primary", "Secondary"].filter((group) => teachers.some((teacher) => teacher.groupJenjang === group)), levels: JENJANG_ORDER, programs: unique(teachers.map((teacher) => teacher.program)), teacherCategories: ["Guru Nasional", "Guru Bilingual", "Guru Internasional"].filter((category) => teachers.some((teacher) => teacher.statusIndividu === "Non-Kasek" && teacher.teacherCategory === category)), schools: unique(teachers.filter((teacher) => (standardFilterMode === "Gabungan" || (standardFilterMode === "Internasional" ? teacher.jenjang === "Internasional" : NATIONAL_LEVELS.includes(teacher.jenjang))) && (filters.groupJenjang.length === 0 || filters.groupJenjang.includes(teacher.groupJenjang)) && (filters.jenjang.length === 0 || filters.jenjang.includes(teacher.jenjang))).map((teacher) => teacher.school)), statuses: unique(teachers.map((teacher) => teacher.status)) }), [filters.groupJenjang, filters.jenjang, standardFilterMode, teachers]);
+  const baseData = useMemo(() => teachers.filter((teacher) => (standardFilterMode === "Gabungan" || (standardFilterMode === "Internasional" ? teacher.jenjang === "Internasional" : NATIONAL_LEVELS.includes(teacher.jenjang))) && (filters.year.length === 0 || filters.year.includes(teacher.year)) && (filters.groupJenjang.length === 0 || filters.groupJenjang.includes(teacher.groupJenjang)) && (filters.jenjang.length === 0 || filters.jenjang.includes(teacher.jenjang)) && (filters.program.length === 0 || filters.program.includes(teacher.program)) && (filters.teacherCategory.length === 0 || (teacher.statusIndividu === "Non-Kasek" && filters.teacherCategory.includes(teacher.teacherCategory))) && (filters.school.length === 0 || filters.school.includes(teacher.school)) && (filters.status.length === 0 || filters.status.includes(teacher.status)) && (filters.individual.length === 0 || filters.individual.includes(teacher.statusIndividu))), [filters, standardFilterMode, teachers]);
   const filteredData = useMemo(() => filterBySegments(baseData, segments, standard), [baseData, segments, standard]);
 
   function updateFilter(key: keyof FilterState, value: string[]) {
     setFilters((current) => ({ ...current, [key]: value, ...((key === "jenjang" || key === "groupJenjang") ? { school: [] } : {}) }));
     if (key === "jenjang") {
       const selectsOnlyInternational = value.length === 1 && value[0] === "Internasional";
+      const selectsNational = value.some((level) => level !== "Internasional");
+      setStandardFilterMode(selectsOnlyInternational ? "Internasional" : selectsNational ? "Nasional" : "Gabungan");
       setWorkStandardScope(selectsOnlyInternational ? "Internasional" : "Nasional");
       setStandard(selectsOnlyInternational ? 30 : 24);
     }
     setSegments({});
   }
-  function toggleLevel(level: string) { updateFilter("jenjang", filters.jenjang.includes(level) ? filters.jenjang.filter((item) => item !== level) : [...filters.jenjang, level]); }
+  function toggleLevel(level: string) {
+    const isInternationalLevel = level === "Internasional";
+    if ((standardFilterMode === "Internasional" && !isInternationalLevel) || (standardFilterMode === "Nasional" && isInternationalLevel)) return;
+    if (standardFilterMode === "Internasional" && isInternationalLevel && filters.jenjang.includes(level)) return;
+    updateFilter("jenjang", filters.jenjang.includes(level) ? filters.jenjang.filter((item) => item !== level) : [...filters.jenjang, level]);
+  }
+  function applyStandardFilterMode(mode: "Gabungan" | "Nasional" | "Internasional") {
+    setStandardFilterMode(mode);
+    setWorkStandardScope(mode === "Internasional" ? "Internasional" : "Nasional");
+    setStandard(mode === "Internasional" ? 30 : 24);
+    setFilters((current) => ({
+      ...current,
+      jenjang: mode === "Internasional" ? ["Internasional"] : [],
+      school: [],
+    }));
+    setSegments({});
+    setDetailModalOpen(false);
+  }
   function toggleSegment(group: string, value: string) {
     pendingSegmentSelection.current[group] = [value];
     if (segmentFlushScheduled.current) return;
@@ -1067,11 +1088,11 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
     });
   }
   function navigate(page: string) { setActivePage(page); setSegments({}); setMobileNav(false); window.scrollTo({ top: 0, behavior: "smooth" }); }
-  function resetAll() { setFilters({ year: [], groupJenjang: [], jenjang: [], program: [], teacherCategory: [], school: [], status: [], individual: [] }); setWorkStandardScope("Nasional"); setStandard(24); setSegments({}); }
+  function resetAll() { setFilters({ year: [], groupJenjang: [], jenjang: [], program: [], teacherCategory: [], school: [], status: [], individual: [] }); setStandardFilterMode("Gabungan"); setWorkStandardScope("Nasional"); setStandard(24); setSegments({}); }
 
   const summaryData = baseData.filter((teacher) => teacher.statusIndividu === "Non-Kasek");
   const summaryFilteredData = filterBySegments(summaryData, segments, standard);
-  const internationalOnly = filters.jenjang.length === 1 && filters.jenjang[0] === "Internasional";
+  const internationalOnly = standardFilterMode === "Internasional";
   const workloadStandardThreshold = internationalOnly || workStandardScope === "Internasional" ? 30 : 24;
   const workloadStandardLabel = workloadStandardThreshold === 30 ? "Internasional" : "Nasional";
   const workloadStandardData = baseData;
@@ -1109,7 +1130,13 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
       <main className="main-content">
         <header className="topbar"><button className="mobile-menu" onClick={() => setMobileNav((current) => !current)} aria-label="Buka menu">☰</button><div><p>Dashboard Analitik</p><h1>{menuItems.find((item) => item.id === activePage)?.label}</h1></div><div className="topbar-meta"><span className="live-dot" /><div><strong>Data terverifikasi</strong><small>Diperbarui 22 Juli 2026</small></div><form action="/api/auth/logout" method="post"><button className="logout-button" type="submit">Keluar</button></form></div></header>
         <section className="filter-panel">
-          <div className="level-chips"><span>Jenjang · bisa pilih lebih dari satu</span><div role="group" aria-label="Pilih jenjang"><button type="button" className={filters.jenjang.length === 0 ? "active" : ""} aria-pressed={filters.jenjang.length === 0} onClick={() => updateFilter("jenjang", [])}>Semua</button>{options.levels.map((level) => <button type="button" className={filters.jenjang.includes(level) ? "active" : ""} aria-pressed={filters.jenjang.includes(level)} onClick={() => toggleLevel(level)} key={level}>{level}</button>)}</div></div>
+          <div className="standard-filter-bar">
+            <div className="standard-filter-copy"><span>Mode standar analisis</span><strong>{standardFilterMode === "Gabungan" ? "Gabungan · otomatis per jenjang" : standardFilterMode === "Internasional" ? "30 JP · khusus Internasional" : "24 JP · khusus TK–SLTA"}</strong></div>
+            <div className="standard-filter-options" role="group" aria-label="Pilih mode standar analisis">
+              {(["Gabungan", "Nasional", "Internasional"] as const).map((mode) => <button type="button" className={standardFilterMode === mode ? "active" : ""} aria-pressed={standardFilterMode === mode} key={mode} onClick={() => applyStandardFilterMode(mode)}><span aria-hidden="true" />{mode === "Gabungan" ? "Gabungan" : mode === "Nasional" ? "24 JP · TK–SLTA" : "30 JP · Internasional"}</button>)}
+            </div>
+          </div>
+          <div className="level-chips"><span>Jenjang · {standardFilterMode === "Gabungan" ? "bisa pilih lebih dari satu" : standardFilterMode === "Internasional" ? "terkunci khusus Internasional" : "Internasional dinonaktifkan pada mode 24 JP"}</span><div role="group" aria-label="Pilih jenjang"><button type="button" className={filters.jenjang.length === 0 && standardFilterMode !== "Internasional" ? "active" : ""} aria-pressed={filters.jenjang.length === 0 && standardFilterMode !== "Internasional"} disabled={standardFilterMode === "Internasional"} title={standardFilterMode === "Internasional" ? "Mode 30 JP hanya untuk Jenjang Internasional" : "Pilih semua jenjang yang diizinkan"} onClick={() => standardFilterMode === "Gabungan" ? updateFilter("jenjang", []) : applyStandardFilterMode("Nasional")}>Semua</button>{options.levels.map((level) => { const disabled = (standardFilterMode === "Internasional" && level !== "Internasional") || (standardFilterMode === "Nasional" && level === "Internasional"); return <button type="button" className={filters.jenjang.includes(level) ? "active" : ""} aria-pressed={filters.jenjang.includes(level)} disabled={disabled} title={disabled ? (standardFilterMode === "Internasional" ? "Mode 30 JP hanya berlaku untuk Internasional" : "Internasional wajib menggunakan mode 30 JP") : `Pilih jenjang ${level}`} onClick={() => toggleLevel(level)} key={level}>{level}</button>; })}</div></div>
           <div className="filter-row">
             <MultiSelectControl label="Tahun Pelajaran" selected={filters.year} values={options.years} onChange={(value) => updateFilter("year", value)} />
             <MultiSelectControl label="Grup Jenjang" selected={filters.groupJenjang} values={options.groupLevels} onChange={(value) => updateFilter("groupJenjang", value)} />
@@ -1137,7 +1164,7 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
               <div className="kpi-grid compact"><KpiCard label="Rata-rata Tatap Muka" value={`${formatNumber(summaryData.reduce((s, t) => s + t.jtm, 0) / Math.max(summaryData.length, 1), 1)} JP`} helper="Total JP Tatap Muka Per Individu" /><KpiCard label="Rata-rata Tugas Tambahan" value={`${formatNumber(summaryData.reduce((s, t) => s + t.taskHours, 0) / Math.max(summaryData.length, 1), 1)} JP`} helper="Total JP Tugas Tambahan Per Individu" tone="gold" /><KpiCard label="Rata-rata Jam Aktual" value={`${formatNumber(avgActual, 1)} JP`} helper="Total Jam Aktual Final Per Individu" tone="green" /><KpiCard label="Di Bawah Standar" value={formatNumber(summaryData.filter((teacher) => isBelowStandard(teacher)).length)} helper="Guru Non-Kasek · Internasional 30 JP" tone="red" /></div>
               <div className="chart-grid">{workTab !== "Kepatuhan" && <ChartCard title={workTab === "Tatap Muka" ? "Total Jam Tatap Muka" : workTab === "Tugas Tambahan" ? "Total Tugas Jam Tambahan" : "Total Jam Aktual"} subtitle={workTab === "Tatap Muka" ? "Jumlah guru menurut Total JP Tatap Muka Per Individu" : workTab === "Tugas Tambahan" ? "Jumlah guru menurut Total JP Tugas Tambahan Per Individu" : "Jumlah guru menurut Total Jam Aktual Final Per Individu"} wide><DataStudioBarChart data={countByNumber(summaryData, workTab === "Tatap Muka" ? (teacher) => teacher.jtm : workTab === "Tugas Tambahan" ? (teacher) => teacher.taskHours : (teacher) => teacher.actual)} group={workTab === "Tatap Muka" ? "jtmValue" : workTab === "Tugas Tambahan" ? "taskHoursValue" : "actualValue"} segments={segments} onToggle={toggleSegment} axisTitle={workTab === "Tatap Muka" ? "Total JP Tatap Muka Per Individu" : workTab === "Tugas Tambahan" ? "Total JP Tugas Tambahan Per Individu" : "Total Jam Aktual Final Per Individu"} /></ChartCard>}{workTab !== "Kepatuhan" && <ChartCard title={`Rata-rata ${workTab} per Jenjang`} subtitle="Khusus guru Non-Kasek · dalam JP"><HorizontalBars data={averageBy(summaryData, (teacher) => teacher.jenjang, workTab === "Tatap Muka" ? (teacher) => teacher.jtm : workTab === "Tugas Tambahan" ? (teacher) => teacher.taskHours : (teacher) => teacher.actual)} group="jenjang" segments={segments} onToggle={toggleSegment} valueSuffix=" JP" maxItems={6} /></ChartCard>}{workTab === "Kepatuhan" && <ChartCard title="Kepatuhan per Jenjang" subtitle="Guru Non-Kasek · standar 24 JP, Internasional 30 JP" wide><GroupedComplianceBars data={summaryData} segments={segments} onToggle={toggleSegment} /></ChartCard>}<ChartCard title="Hubungan JTM dan Jam Aktual" subtitle="Guru Non-Kasek · klik titik untuk memilih individu" wide={workTab === "Kepatuhan"}><ScatterPlot data={summaryData} segments={segments} onToggle={toggleSegment} /></ChartCard></div>
             </> : <>
-              <div className="tab-row tab-row-compact" role="group" aria-label="Pilihan standar beban kerja">{(["Nasional", "Internasional"] as const).map((scope) => <button type="button" className={workloadStandardLabel === scope ? "active" : ""} aria-pressed={workloadStandardLabel === scope} disabled={internationalOnly && scope === "Nasional"} key={scope} onClick={() => { if (internationalOnly) return; setWorkStandardScope(scope); setSegments({}); }}><span aria-hidden="true" className="tab-choice-indicator" />{scope} · {scope === "Internasional" ? "30 JP" : "24 JP"}</button>)}</div>
+              <div className="tab-row tab-row-compact" role="group" aria-label="Pilihan standar beban kerja">{(["Nasional", "Internasional"] as const).map((scope) => <button type="button" className={workloadStandardLabel === scope ? "active" : ""} aria-pressed={workloadStandardLabel === scope} key={scope} onClick={() => applyStandardFilterMode(scope)}><span aria-hidden="true" className="tab-choice-indicator" />{scope} · {scope === "Internasional" ? "30 JP" : "24 JP"}</button>)}</div>
               <div className="kpi-grid compact"><KpiCard label="Total Guru" value={formatNumber(workloadStandardData.length)} helper="Mengikuti filter Status Individu" tone="navy" /><KpiCard label={`JTM < ${workloadStandardThreshold} JP`} value={formatNumber(workloadStandardData.filter((teacher) => teacher.jtm < workloadStandardThreshold).length)} helper="Di bawah ambang tatap muka" tone="red" /><KpiCard label={`JTM = ${workloadStandardThreshold} JP`} value={formatNumber(workloadStandardData.filter((teacher) => teacher.jtm === workloadStandardThreshold).length)} helper="Tepat pada ambang tatap muka" tone="gold" /><KpiCard label={`Aktual < ${workloadStandardThreshold} JP`} value={formatNumber(workloadStandardData.filter((teacher) => teacher.actual < workloadStandardThreshold).length)} helper="Di bawah ambang jam aktual" tone="red" /></div>
               <div className="standard-policy-note"><strong>Ambang analisis:</strong><span>Parameter {workloadStandardLabel}</span><i aria-hidden="true" /><span>{internationalOnly ? "Jenjang Internasional otomatis menggunakan" : "Seluruh data aktif dibandingkan dengan"} {workloadStandardThreshold} JP</span></div>
               <div className="chart-grid">
