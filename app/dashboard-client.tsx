@@ -1212,7 +1212,7 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
           <DetailTable data={pageData} segments={segments} clearSegments={() => setSegments({})} page={activePage} />
         <DetailPopupModal open={detailModalOpen} data={pageData} segments={segments} page={activePage} onClose={() => setDetailModalOpen(false)} onClear={() => { setSegments({}); setDetailModalOpen(false); }} />
         </section>
-        <footer><span>Bagian Riset dan Pengembangan</span><strong>BPK PENABUR Jakarta</strong><span>TP 2025/2026</span></footer>
+        <footer className="site-footer"><p>Copyright © 2026 Bagian Sistem dan Analitik Data, BPK PENABUR Jakarta. All Rights Reserved.</p></footer>
       </main>
       {mobileNav && <button className="nav-backdrop" onClick={() => setMobileNav(false)} aria-label="Tutup menu" />}
     </div>
