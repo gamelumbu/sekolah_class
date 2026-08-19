@@ -52,6 +52,7 @@ type ChartExportContextValue = {
 const ChartExportContext = createContext<ChartExportContextValue>({ people: [], standard: 24 });
 const ALL = "Semua";
 const palette = ["#2F6EB5", "#E0A72B", "#7657C8", "#2F8A68", "#D96C5F", "#4A91A8"];
+const JENJANG_ORDER = ["TK", "SD", "SMP", "SLTA", "Internasional"];
 const complianceColors: Record<string, string> = {
   "Di bawah standar": "#CF4C55",
   "Tepat standar": "#E0A72B",
@@ -102,6 +103,18 @@ function countBy<T>(data: T[], getter: (item: T) => string) {
     map.set(key, (map.get(key) || 0) + 1);
   });
   return [...map.entries()].map(([label, value]) => ({ label, value }));
+}
+
+function jenjangOrderIndex(label: string) {
+  const normalized = label.trim().toLocaleLowerCase("id-ID");
+  const canonical = normalized === "international" ? "internasional" : normalized;
+  const index = JENJANG_ORDER.findIndex((level) => level.toLocaleLowerCase("id-ID") === canonical);
+  return index === -1 ? JENJANG_ORDER.length : index;
+}
+
+function orderChartData(data: { label: string; value: number }[], group: string) {
+  if (group !== "jenjang") return data;
+  return [...data].sort((a, b) => jenjangOrderIndex(a.label) - jenjangOrderIndex(b.label) || a.label.localeCompare(b.label, "id"));
 }
 
 function numericLabel(value: number) {
@@ -372,7 +385,7 @@ function HorizontalBars({ data, group, segments, onToggle, maxItems = 10, valueS
   valueSuffix?: string;
   colors?: string[];
 }) {
-  const sorted = [...data].sort((a, b) => b.value - a.value).slice(0, maxItems);
+  const sorted = (group === "jenjang" ? orderChartData(data, group) : [...data].sort((a, b) => b.value - a.value)).slice(0, maxItems);
   const max = Math.max(...sorted.map((item) => item.value), 1);
   const barColors = customColors || palette;
   return (
@@ -398,10 +411,11 @@ function ColumnChart({ data, group, segments, onToggle, scrollable = false }: {
   onToggle: (group: string, value: string) => void;
   scrollable?: boolean;
 }) {
-  const max = Math.max(...data.map((item) => item.value), 1);
+  const orderedData = orderChartData(data, group);
+  const max = Math.max(...orderedData.map((item) => item.value), 1);
   const chart = (
-    <div className="column-chart" style={scrollable ? { minWidth: `${Math.max(data.length * 50, 720)}px` } : undefined} data-export-json={JSON.stringify(data.map((item) => ({ Kategori: item.label, Jumlah_Guru: item.value })))} data-export-group={group} data-export-values={JSON.stringify(data.map((item) => item.label))}>
-      {data.map((item, index) => {
+    <div className="column-chart" style={scrollable ? { minWidth: `${Math.max(orderedData.length * 50, 720)}px` } : undefined} data-export-json={JSON.stringify(orderedData.map((item) => ({ Kategori: item.label, Jumlah_Guru: item.value })))} data-export-group={group} data-export-values={JSON.stringify(orderedData.map((item) => item.label))}>
+      {orderedData.map((item, index) => {
         const selected = segments[group]?.includes(item.label);
         return (
           <button className={`column-item ${selected ? "is-selected" : ""}`} key={item.label} onClick={() => onToggle(group, item.label)} title={`Klik ${item.label}`}>
@@ -423,13 +437,14 @@ function DataStudioBarChart({ data, group, segments, onToggle, axisTitle }: {
   onToggle: (group: string, value: string) => void;
   axisTitle: string;
 }) {
-  const max = Math.max(...data.map((item) => item.value), 1);
-  const minWidth = Math.max(data.length * (data.length <= 8 ? 112 : 58), 720);
+  const orderedData = orderChartData(data, group);
+  const max = Math.max(...orderedData.map((item) => item.value), 1);
+  const minWidth = Math.max(orderedData.length * (orderedData.length <= 8 ? 112 : 58), 720);
   return (
     <div className="data-studio-scroll">
-      <div className="data-studio-column-chart" style={{ minWidth }} data-export-json={JSON.stringify(data.map((item) => ({ Kategori: item.label, Jumlah_Guru: item.value })))} data-export-group={group} data-export-values={JSON.stringify(data.map((item) => item.label))}>
+      <div className="data-studio-column-chart" style={{ minWidth }} data-export-json={JSON.stringify(orderedData.map((item) => ({ Kategori: item.label, Jumlah_Guru: item.value })))} data-export-group={group} data-export-values={JSON.stringify(orderedData.map((item) => item.label))}>
         <div className="data-studio-bars">
-          {data.map((item) => {
+          {orderedData.map((item) => {
             const selected = segments[group]?.includes(item.label);
             const height = Math.max((item.value / max) * 100, 1.5);
             const labelInside = height >= 13;
@@ -660,10 +675,11 @@ function DonutChart({ data, group, segments, onToggle }: {
   segments: Segments;
   onToggle: (group: string, value: string) => void;
 }) {
-  const actualTotal = data.reduce((sum, item) => sum + item.value, 0);
+  const orderedData = orderChartData(data, group);
+  const actualTotal = orderedData.reduce((sum, item) => sum + item.value, 0);
   const total = Math.max(actualTotal, 1);
   let cursor = 0;
-  const slices = data.map((item, index) => {
+  const slices = orderedData.map((item, index) => {
     const startPercent = cursor;
     const sweepPercent = item.value / total * 100;
     cursor += sweepPercent;
@@ -680,7 +696,7 @@ function DonutChart({ data, group, segments, onToggle }: {
   });
 
   return (
-    <div className="donut-layout" data-export-json={JSON.stringify(data.map((item) => ({ Kategori: item.label, Jumlah: item.value, Persentase: Number((item.value / total * 100).toFixed(2)) })))} data-export-group={group} data-export-values={JSON.stringify(data.map((item) => item.label))}>
+    <div className="donut-layout" data-export-json={JSON.stringify(orderedData.map((item) => ({ Kategori: item.label, Jumlah: item.value, Persentase: Number((item.value / total * 100).toFixed(2)) })))} data-export-group={group} data-export-values={JSON.stringify(orderedData.map((item) => item.label))}>
       <svg className="donut" viewBox="0 0 160 160" role="img" aria-label="Komposisi jumlah tenaga pendidik">
         <circle className="donut-track" cx="80" cy="80" r="61" />
         {slices.map((slice) => (
@@ -718,7 +734,7 @@ function DonutChart({ data, group, segments, onToggle }: {
         <text className="donut-total-label" x="80" y="92" textAnchor="middle">Total guru</text>
       </svg>
       <div className="donut-legend">
-        {data.map((item, index) => (
+        {orderedData.map((item, index) => (
           <button type="button" className={segments[group]?.includes(item.label) ? "is-selected" : ""} key={item.label} onClick={() => { if (item.value > 0) onToggle(group, item.label); }} disabled={item.value === 0}>
             <i style={{ background: palette[index % palette.length] }} /><span>{item.label}</span><strong>{formatNumber(item.value)} · {formatPercent(item.value, total)}</strong>
           </button>
@@ -734,7 +750,7 @@ function GroupedComplianceBars({ data, segments, onToggle, standard }: {
   onToggle: (group: string, value: string) => void;
   standard?: number;
 }) {
-  const levels = ["TK", "SD", "SMP", "SLTA", "Internasional"];
+  const levels = JENJANG_ORDER;
   const labels = ["Di bawah standar", "Tepat standar", "Di atas standar"];
   const chartRows = levels.flatMap((level) => {
     const scoped = data.filter((teacher) => teacher.jenjang === level);
@@ -838,7 +854,7 @@ function LocationJtmBubble({ data, segments, onToggle, threshold }: {
 
 function ScatterPlot({ data, segments, onToggle, mode = "workload" }: { data: Teacher[]; segments: Segments; onToggle: (group: string, value: string) => void; mode?: "workload" | "location" }) {
   const sample = data.filter((_, index) => index % Math.max(Math.floor(data.length / 140), 1) === 0).slice(0, 160);
-  const levels = ["TK", "SD", "SMP", "SLTA", "Internasional"];
+  const levels = JENJANG_ORDER;
   return (
     <div className="scatter-wrap" data-export-json={JSON.stringify(sample.map((teacher) => ({ NIK: teacher.nik, Nama: teacher.name, Jenjang: teacher.jenjang, JTM: teacher.jtm, Jumlah_Lokasi: teacher.schoolCount, Jam_Aktual: teacher.actual })))}>
       <svg viewBox="0 0 620 255" role="img" aria-label={mode === "location" ? "Hubungan jumlah lokasi dan jam aktual" : "Hubungan jam tatap muka dan jam aktual"}>
@@ -1024,7 +1040,7 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
     return () => window.removeEventListener("dashboard-scenario-filter", selectScenario);
   }, []);
 
-  const options = useMemo(() => ({ years: unique(teachers.map((teacher) => teacher.year)), groupLevels: ["TK", "SD", "SMP", "SLTA", "Primary", "Secondary"].filter((group) => teachers.some((teacher) => teacher.groupJenjang === group)), levels: ["TK", "SD", "SMP", "SLTA", "Internasional"], programs: unique(teachers.map((teacher) => teacher.program)), teacherCategories: ["Guru Nasional", "Guru Bilingual", "Guru Internasional"].filter((category) => teachers.some((teacher) => teacher.statusIndividu === "Non-Kasek" && teacher.teacherCategory === category)), schools: unique(teachers.filter((teacher) => (filters.groupJenjang.length === 0 || filters.groupJenjang.includes(teacher.groupJenjang)) && (filters.jenjang.length === 0 || filters.jenjang.includes(teacher.jenjang))).map((teacher) => teacher.school)), statuses: unique(teachers.map((teacher) => teacher.status)) }), [filters.groupJenjang, filters.jenjang, teachers]);
+  const options = useMemo(() => ({ years: unique(teachers.map((teacher) => teacher.year)), groupLevels: ["TK", "SD", "SMP", "SLTA", "Primary", "Secondary"].filter((group) => teachers.some((teacher) => teacher.groupJenjang === group)), levels: JENJANG_ORDER, programs: unique(teachers.map((teacher) => teacher.program)), teacherCategories: ["Guru Nasional", "Guru Bilingual", "Guru Internasional"].filter((category) => teachers.some((teacher) => teacher.statusIndividu === "Non-Kasek" && teacher.teacherCategory === category)), schools: unique(teachers.filter((teacher) => (filters.groupJenjang.length === 0 || filters.groupJenjang.includes(teacher.groupJenjang)) && (filters.jenjang.length === 0 || filters.jenjang.includes(teacher.jenjang))).map((teacher) => teacher.school)), statuses: unique(teachers.map((teacher) => teacher.status)) }), [filters.groupJenjang, filters.jenjang, teachers]);
   const baseData = useMemo(() => teachers.filter((teacher) => (filters.year.length === 0 || filters.year.includes(teacher.year)) && (filters.groupJenjang.length === 0 || filters.groupJenjang.includes(teacher.groupJenjang)) && (filters.jenjang.length === 0 || filters.jenjang.includes(teacher.jenjang)) && (filters.program.length === 0 || filters.program.includes(teacher.program)) && (filters.teacherCategory.length === 0 || (teacher.statusIndividu === "Non-Kasek" && filters.teacherCategory.includes(teacher.teacherCategory))) && (filters.school.length === 0 || filters.school.includes(teacher.school)) && (filters.status.length === 0 || filters.status.includes(teacher.status)) && (filters.individual.length === 0 || filters.individual.includes(teacher.statusIndividu))), [filters, teachers]);
   const filteredData = useMemo(() => filterBySegments(baseData, segments, standard), [baseData, segments, standard]);
 
@@ -1164,7 +1180,7 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
   <ChartCard title="Lokasi Mengajar Berdasarkan Tatap Muka" subtitle={`Total JP Tatap Muka × jumlah lokasi · garis standar ${locationStandardThreshold} JP`} wide><LocationJtmBubble data={summaryData} segments={segments} onToggle={toggleSegment} threshold={locationStandardThreshold} /></ChartCard>
 </>}{orgTab === "Status" && <ChartCard title="STATUS GURU" subtitle={`Seluruh ${formatNumber(baseData.length)} NIK unik · klik batang untuk melihat detail`} wide><DataStudioBarChart data={countBy(baseData, (teacher) => teacher.status)} group="status" segments={segments} onToggle={toggleSegment} axisTitle="Status Kontrak" /></ChartCard>}</div></>}
 
-          {activePage === "simulation" && <><div className="tab-row">{["Standar JP", "Kebutuhan Guru", "Pemerataan Tugas", "Perbandingan Jenjang"].map((tab) => <button className={simTab === tab ? "active" : ""} key={tab} onClick={() => { setSimTab(tab); setSegments({}); }}>{tab}</button>)}</div>{simTab === "Standar JP" && <><div className="scenario-panel"><div><p>{internationalOnly ? "Standar Jenjang Internasional" : "Standar simulasi jenjang lain"}</p><strong>{effectiveSimulationStandard} JP</strong></div><input type="range" min="24" max="30" value={effectiveSimulationStandard} disabled={internationalOnly} onChange={(event) => { setStandard(Number(event.target.value)); setSegments({}); }} /><span>{internationalOnly ? "Internasional" : "24 JP"}</span><span>{internationalOnly ? "30 JP tetap" : "30 JP"}</span></div><div className="kpi-grid compact"><KpiCard label="Di Bawah Standar" value={formatNumber(baseData.filter((teacher) => isBelowStandard(teacher, effectiveSimulationStandard)).length)} helper={effectivePolicyLabel} tone="red" /><KpiCard label="Tepat Standar" value={formatNumber(baseData.filter((teacher) => teacher.actual === standardForTeacher(teacher, effectiveSimulationStandard)).length)} helper={effectivePolicyLabel} tone="gold" /><KpiCard label="Di Atas Standar" value={formatNumber(baseData.filter((teacher) => teacher.actual > standardForTeacher(teacher, effectiveSimulationStandard)).length)} helper={effectivePolicyLabel} tone="green" /></div><div className="chart-grid"><ChartCard title={internationalOnly ? "Standar Tetap Internasional 30 JP" : "Dampak Perubahan Standar 24-30 JP"} subtitle={internationalOnly ? "Jenjang Internasional otomatis menggunakan standar 30 JP" : "Internasional tetap menggunakan standar 30 JP"} exportPeople={pageData.filter((teacher) => isBelowStandard(teacher, effectiveSimulationStandard))}><SimulationLine data={baseData} standard={effectiveSimulationStandard} setStandard={(value) => { if (internationalOnly) return; setStandard(value); setSegments({}); }} /></ChartCard><ChartCard title="Kategori per Jenjang" subtitle={effectivePolicyLabel}><StackedCompliance data={baseData} segments={segments} onToggle={toggleSegment} standard={effectiveSimulationStandard} /></ChartCard></div></>}{simTab === "Kebutuhan Guru" && <div className="readiness-grid"><EmptyState title="Data formasi belum tersedia" body="Perhitungan kebutuhan guru per mapel memerlukan jumlah rombel, JP kurikulum per mapel, dan formasi guru per sekolah. Dashboard tidak membuat estimasi tanpa sumber resmi." /><ChartCard title="Data yang Sudah Tersedia" subtitle="Siap digunakan ketika data formasi ditambahkan"><HorizontalBars data={countBy(baseData, (teacher) => teacher.subject)} group="subject" segments={segments} onToggle={toggleSegment} maxItems={12} /></ChartCard></div>}{simTab === "Pemerataan Tugas" && <><div className="scenario-panel"><div><p>Tambahan jam simulasi</p><strong>+{extraHours} JP</strong></div><input type="range" min="0" max="12" step="3" value={extraHours} onChange={(event) => setExtraHours(Number(event.target.value))} /><span>0 JP</span><span>12 JP</span></div><div className="kpi-grid compact"><KpiCard label="Di Bawah Sebelum" value={formatNumber(baseData.filter((teacher) => isBelowStandard(teacher)).length)} helper={internationalOnly ? "Internasional · standar 30 JP" : "24 JP · Internasional 30 JP"} tone="red" /><KpiCard label="Memenuhi Setelah Simulasi" value={formatNumber(baseData.filter((teacher) => isBelowStandard(teacher) && teacher.actual + extraHours >= standardForTeacher(teacher)).length)} helper={`Berubah setelah +${extraHours} JP`} tone="green" /><KpiCard label="Masih Di Bawah" value={formatNumber(baseData.filter((teacher) => teacher.actual + extraHours < standardForTeacher(teacher)).length)} helper="Perlu tindak lanjut" tone="gold" /></div><ChartCard title="Dampak Pemerataan per Jenjang" subtitle={internationalOnly ? "Mencapai standar Internasional 30 JP" : "Mencapai standar 24 JP · Internasional 30 JP"} wide exportPeople={pageData.filter((teacher) => isBelowStandard(teacher) && teacher.actual + extraHours >= standardForTeacher(teacher))}><HorizontalBars data={["TK", "SD", "SMP", "SLTA", "Internasional"].map((level) => ({ label: level, value: baseData.filter((teacher) => teacher.jenjang === level && isBelowStandard(teacher) && teacher.actual + extraHours >= standardForTeacher(teacher)).length }))} group="jenjang" segments={segments} onToggle={toggleSegment} maxItems={6} /></ChartCard></>}{simTab === "Perbandingan Jenjang" && <div className="chart-grid"><ChartCard title="Jumlah Tenaga Pendidik" subtitle="Perbandingan seluruh jenjang"><ColumnChart data={countBy(baseData, (teacher) => teacher.jenjang)} group="jenjang" segments={segments} onToggle={toggleSegment} /></ChartCard><ChartCard title="Kepatuhan Jam Aktual" subtitle={internationalOnly ? "Internasional · standar 30 JP" : "24 JP · Internasional 30 JP"}><StackedCompliance data={baseData} segments={segments} onToggle={toggleSegment} /></ChartCard></div>}</>}
+          {activePage === "simulation" && <><div className="tab-row">{["Standar JP", "Kebutuhan Guru", "Pemerataan Tugas", "Perbandingan Jenjang"].map((tab) => <button className={simTab === tab ? "active" : ""} key={tab} onClick={() => { setSimTab(tab); setSegments({}); }}>{tab}</button>)}</div>{simTab === "Standar JP" && <><div className="scenario-panel"><div><p>{internationalOnly ? "Standar Jenjang Internasional" : "Standar simulasi jenjang lain"}</p><strong>{effectiveSimulationStandard} JP</strong></div><input type="range" min="24" max="30" value={effectiveSimulationStandard} disabled={internationalOnly} onChange={(event) => { setStandard(Number(event.target.value)); setSegments({}); }} /><span>{internationalOnly ? "Internasional" : "24 JP"}</span><span>{internationalOnly ? "30 JP tetap" : "30 JP"}</span></div><div className="kpi-grid compact"><KpiCard label="Di Bawah Standar" value={formatNumber(baseData.filter((teacher) => isBelowStandard(teacher, effectiveSimulationStandard)).length)} helper={effectivePolicyLabel} tone="red" /><KpiCard label="Tepat Standar" value={formatNumber(baseData.filter((teacher) => teacher.actual === standardForTeacher(teacher, effectiveSimulationStandard)).length)} helper={effectivePolicyLabel} tone="gold" /><KpiCard label="Di Atas Standar" value={formatNumber(baseData.filter((teacher) => teacher.actual > standardForTeacher(teacher, effectiveSimulationStandard)).length)} helper={effectivePolicyLabel} tone="green" /></div><div className="chart-grid"><ChartCard title={internationalOnly ? "Standar Tetap Internasional 30 JP" : "Dampak Perubahan Standar 24-30 JP"} subtitle={internationalOnly ? "Jenjang Internasional otomatis menggunakan standar 30 JP" : "Internasional tetap menggunakan standar 30 JP"} exportPeople={pageData.filter((teacher) => isBelowStandard(teacher, effectiveSimulationStandard))}><SimulationLine data={baseData} standard={effectiveSimulationStandard} setStandard={(value) => { if (internationalOnly) return; setStandard(value); setSegments({}); }} /></ChartCard><ChartCard title="Kategori per Jenjang" subtitle={effectivePolicyLabel}><StackedCompliance data={baseData} segments={segments} onToggle={toggleSegment} standard={effectiveSimulationStandard} /></ChartCard></div></>}{simTab === "Kebutuhan Guru" && <div className="readiness-grid"><EmptyState title="Data formasi belum tersedia" body="Perhitungan kebutuhan guru per mapel memerlukan jumlah rombel, JP kurikulum per mapel, dan formasi guru per sekolah. Dashboard tidak membuat estimasi tanpa sumber resmi." /><ChartCard title="Data yang Sudah Tersedia" subtitle="Siap digunakan ketika data formasi ditambahkan"><HorizontalBars data={countBy(baseData, (teacher) => teacher.subject)} group="subject" segments={segments} onToggle={toggleSegment} maxItems={12} /></ChartCard></div>}{simTab === "Pemerataan Tugas" && <><div className="scenario-panel"><div><p>Tambahan jam simulasi</p><strong>+{extraHours} JP</strong></div><input type="range" min="0" max="12" step="3" value={extraHours} onChange={(event) => setExtraHours(Number(event.target.value))} /><span>0 JP</span><span>12 JP</span></div><div className="kpi-grid compact"><KpiCard label="Di Bawah Sebelum" value={formatNumber(baseData.filter((teacher) => isBelowStandard(teacher)).length)} helper={internationalOnly ? "Internasional · standar 30 JP" : "24 JP · Internasional 30 JP"} tone="red" /><KpiCard label="Memenuhi Setelah Simulasi" value={formatNumber(baseData.filter((teacher) => isBelowStandard(teacher) && teacher.actual + extraHours >= standardForTeacher(teacher)).length)} helper={`Berubah setelah +${extraHours} JP`} tone="green" /><KpiCard label="Masih Di Bawah" value={formatNumber(baseData.filter((teacher) => teacher.actual + extraHours < standardForTeacher(teacher)).length)} helper="Perlu tindak lanjut" tone="gold" /></div><ChartCard title="Dampak Pemerataan per Jenjang" subtitle={internationalOnly ? "Mencapai standar Internasional 30 JP" : "Mencapai standar 24 JP · Internasional 30 JP"} wide exportPeople={pageData.filter((teacher) => isBelowStandard(teacher) && teacher.actual + extraHours >= standardForTeacher(teacher))}><HorizontalBars data={JENJANG_ORDER.map((level) => ({ label: level, value: baseData.filter((teacher) => teacher.jenjang === level && isBelowStandard(teacher) && teacher.actual + extraHours >= standardForTeacher(teacher)).length }))} group="jenjang" segments={segments} onToggle={toggleSegment} maxItems={6} /></ChartCard></>}{simTab === "Perbandingan Jenjang" && <div className="chart-grid"><ChartCard title="Jumlah Tenaga Pendidik" subtitle="Perbandingan seluruh jenjang"><ColumnChart data={countBy(baseData, (teacher) => teacher.jenjang)} group="jenjang" segments={segments} onToggle={toggleSegment} /></ChartCard><ChartCard title="Kepatuhan Jam Aktual" subtitle={internationalOnly ? "Internasional · standar 30 JP" : "24 JP · Internasional 30 JP"}><StackedCompliance data={baseData} segments={segments} onToggle={toggleSegment} /></ChartCard></div>}</>}
 
           <DetailTable data={pageData} segments={segments} clearSegments={() => setSegments({})} page={activePage} />
         <DetailPopupModal open={detailModalOpen} data={pageData} segments={segments} page={activePage} onClose={() => setDetailModalOpen(false)} onClear={() => { setSegments({}); setDetailModalOpen(false); }} />
