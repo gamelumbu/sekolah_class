@@ -98,11 +98,68 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px s
 .mobile-menu { display: none; border: 0; background: transparent; font-size: 22px; cursor: pointer; }
 
 .filter-panel { padding: 18px 34px 20px; border-bottom: 1px solid var(--line); background: #fff; box-shadow: 0 5px 20px rgba(24,54,88,.035); }
-.level-chips { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+.level-chips { display: flex; align-items: center; gap: 18px; margin-bottom: 16px; }
 .level-chips > span, .filter-control > span { color: var(--muted); font-size: 10px; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; }
-.level-chips > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.level-chips > div {
+  width: min(100%, 780px);
+  display: grid;
+  grid-template-columns: repeat(6, minmax(96px, 1fr));
+  gap: 9px;
+}
 .level-chips button, .tab-row button { border: 1px solid var(--line); border-radius: 999px; background: #fff; color: #53677f; cursor: pointer; font-size: 11px; font-weight: 650; transition: .18s ease; }
-.level-chips button { padding: 7px 14px; }
+.level-chips button {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-color: #b9c9dc;
+  background: linear-gradient(180deg, #fff 0%, #f5f8fc 100%);
+  color: #294764;
+  font-weight: 800;
+  letter-spacing: .01em;
+  box-shadow: 0 3px 8px rgba(23, 58, 96, .08), inset 0 1px 0 rgba(255,255,255,.9);
+}
+.level-chips button::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border: 2px solid #8299b2;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(47,110,181,.06);
+  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.level-chips button:hover {
+  border-color: var(--blue-600);
+  color: var(--blue-600);
+  background: #f3f8ff;
+  box-shadow: 0 7px 16px rgba(32, 91, 153, .14);
+  transform: translateY(-2px);
+}
+.level-chips button:hover::before { border-color: var(--blue-600); }
+.level-chips button:focus-visible {
+  outline: 3px solid rgba(47,110,181,.24);
+  outline-offset: 2px;
+}
+.level-chips button.active {
+  border-color: var(--navy-900);
+  background: linear-gradient(135deg, var(--navy-900) 0%, #215b96 100%);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(12,39,71,.22);
+  transform: translateY(-1px);
+}
+.level-chips button.active::before {
+  border-color: #fff;
+  background: var(--gold-500);
+  box-shadow: 0 0 0 3px rgba(255,255,255,.18);
+}
+.level-chips button:active { transform: translateY(0); }
 .level-chips button:hover, .tab-row button:hover { border-color: #9eb8d5; color: var(--blue-600); }
 .level-chips button.active, .tab-row button.active { border-color: var(--navy-900); background: var(--navy-900); color: #fff; box-shadow: 0 5px 12px rgba(12,39,71,.16); }
 .filter-row { display: grid; grid-template-columns: .9fr 1fr 1fr 1.5fr 1fr 1fr auto; gap: 10px; align-items: end; }
@@ -1112,4 +1169,45 @@ footer { font-size: 10px; }
   .donut-layout { grid-template-columns: 1fr; }
   .donut { width: 180px; }
   .chart-heading h3 { font-size: 14.5px; }
+}
+
+
+/* Equal, clearly interactive level selector */
+.level-chips > div {
+  width: min(100%, 780px);
+  display: grid;
+  grid-template-columns: repeat(6, minmax(96px, 1fr));
+  gap: 9px;
+}
+.level-chips button {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid #b9c9dc;
+  background: linear-gradient(180deg, #fff 0%, #f5f8fc 100%);
+  color: #294764;
+  box-shadow: 0 3px 8px rgba(23,58,96,.08), inset 0 1px 0 rgba(255,255,255,.9);
+}
+.level-chips button:hover {
+  border-color: var(--blue-600);
+  color: var(--blue-600);
+  background: #f3f8ff;
+  box-shadow: 0 7px 16px rgba(32,91,153,.14);
+  transform: translateY(-2px);
+}
+.level-chips button.active {
+  border-color: var(--navy-900);
+  background: linear-gradient(135deg, var(--navy-900) 0%, #215b96 100%);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(12,39,71,.22);
+  transform: translateY(-1px);
+}
+@media (max-width: 1120px) {
+  .level-chips { align-items: flex-start; flex-direction: column; gap: 9px; }
+  .level-chips > div { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .level-chips > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .level-chips button { min-height: 40px; padding: 7px 9px; }
 }
