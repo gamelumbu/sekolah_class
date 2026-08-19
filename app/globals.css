@@ -1717,3 +1717,15 @@ footer { font-size: 10px; }
     transition: none;
   }
 }
+
+
+/* Keep value and percentage visible inside smaller donut slices */
+.donut-value.is-compact {
+  font-size: 7.25px;
+  stroke-width: 1.8px;
+}
+
+.donut-value.is-compact .donut-percent {
+  font-size: 6.25px;
+  font-weight: 850;
+}

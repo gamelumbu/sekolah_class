@@ -723,7 +723,7 @@ function DonutChart({ data, group, segments, onToggle }: {
               strokeDashoffset={-slice.startPercent}
               transform="rotate(-90 80 80)"
             />
-            {slice.value > 0 && slice.sweepPercent >= 6 && <text className="donut-value" x={slice.labelX} y={slice.labelY} textAnchor="middle" dominantBaseline="middle">
+            {slice.value > 0 && slice.sweepPercent >= 4 && <text className={`donut-value ${slice.sweepPercent < 8 ? "is-compact" : ""}`} x={slice.labelX} y={slice.labelY} textAnchor="middle" dominantBaseline="middle">
               <tspan x={slice.labelX} dy="-0.35em">{formatNumber(slice.value)}</tspan>
               <tspan className="donut-percent" x={slice.labelX} dy="1.25em">{formatPercent(slice.value, total)}</tspan>
             </text>}
