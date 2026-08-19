@@ -203,7 +203,11 @@ function MultiSelectControl({ label, selected, values, onChange }: { label: stri
     <div className="filter-control">
       <span>{label}</span>
       <details className="multi-select">
-        <summary aria-label={`${label}: ${summary}`}><span>{summary}</span><b>{selected.length ? selected.length : ""}</b></summary>
+        <summary aria-label={`${label}: ${summary}`}>
+          <span className="multi-summary-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4" /></svg></span>
+          <span className="multi-summary-text">{summary}</span>
+          <b>{selected.length ? selected.length : ""}</b>
+        </summary>
         <div className="multi-menu">
           <input className="multi-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Cari ${label.toLowerCase()}...`} aria-label={`Cari ${label}`} />
           <div className="multi-actions"><button type="button" onClick={() => onChange(values)}>Pilih semua</button><button type="button" onClick={() => onChange([])}>Hapus pilihan</button></div>
@@ -1098,7 +1102,10 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
             <MultiSelectControl label="Sekolah" selected={filters.school} values={options.schools} onChange={(value) => updateFilter("school", value)} />
             <MultiSelectControl label="Status Kontrak" selected={filters.status} values={options.statuses} onChange={(value) => updateFilter("status", value)} />
             <MultiSelectControl label="Status Individu" selected={filters.individual} values={["Non-Kasek", "Kasek"]} onChange={(value) => updateFilter("individual", value)} />
-            <button className="reset-button" onClick={resetAll}>Atur ulang</button>
+            <button type="button" className="reset-button" onClick={resetAll} aria-label="Atur ulang seluruh filter" title="Hapus seluruh pilihan filter">
+              <span className="reset-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4.8 8.5A8 8 0 1 1 4 15" /><path d="M4.8 8.5V4.8M4.8 8.5h3.7" /></svg></span>
+              <span>Atur ulang</span>
+            </button>
           </div>
         </section>
 
