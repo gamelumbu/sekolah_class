@@ -1,0 +1,30 @@
+.card { grid-column: 1 / -1; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+.cardHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 20px 22px 15px; border-bottom: 1px solid var(--line); }
+.cardHeader p, .cardHeader h3, .cardHeader span { margin: 0; }
+.cardHeader p { color: var(--gold-500); font-size: 9px; font-weight: 850; letter-spacing: .11em; text-transform: uppercase; }
+.cardHeader h3 { margin-top: 4px; color: var(--navy-900); font-size: 16px; letter-spacing: -.02em; }
+.cardHeader span { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
+.scroller { overflow-x: auto; padding: 18px 20px 16px; }
+.chart { min-width: 760px; }
+.head, .row { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(170px, 220px) minmax(220px, 1fr); align-items: center; gap: 12px; }
+.head { padding: 0 8px 10px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .055em; text-transform: uppercase; }
+.head span:first-child { text-align: right; }
+.head span:last-child { text-align: left; }
+.head strong { color: var(--navy-900); text-align: center; }
+.rows { display: grid; gap: 4px; margin-top: 6px; }
+.row { min-height: 34px; }
+.side { display: grid; align-items: center; gap: 8px; min-width: 0; padding: 4px 0; }
+.left { grid-template-columns: 42px minmax(0, 1fr); }
+.right { grid-template-columns: minmax(0, 1fr) 42px; }
+.side strong { color: var(--blue-600); font-size: 11px; font-weight: 800; }
+.left strong { text-align: right; }
+.right strong { text-align: left; }
+.track { position: relative; display: block; height: 16px; overflow: hidden; border-radius: 4px; background: #edf3f9; }
+.track i { position: absolute; top: 0; bottom: 0; display: block; border-radius: 4px; background: var(--blue-600); }
+.left .track i { right: 0; }
+.right .track i { left: 0; }
+.subject { display: flex; min-width: 0; min-height: 30px; flex-direction: column; align-items: center; justify-content: center; padding: 3px 7px; border-radius: 7px; color: var(--ink); text-align: center; }
+.subject span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 750; }
+.subject small { min-height: 12px; margin-top: 1px; color: var(--gold-500); font-size: 8px; font-weight: 750; }
+.note { padding: 11px 20px 14px; border-top: 1px dashed var(--line); color: var(--muted); font-size: 10px; line-height: 1.55; text-align: center; }
+@media (max-width: 900px) { .chart { min-width: 680px; } .head, .row { grid-template-columns: minmax(190px, 1fr) 160px minmax(190px, 1fr); gap: 8px; } }

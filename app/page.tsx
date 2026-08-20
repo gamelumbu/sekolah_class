@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import DashboardClient from "./dashboard-client";
 import LoginForm from "./login-form";
+import SubjectBidirectionalEnhancer from "./subject-bidirectional-enhancer";
 import { authCookie, verifySession } from "@/lib/auth";
 import { readTeacherDatabase } from "@/lib/teacher-data";
 
@@ -10,5 +11,8 @@ export default async function Home() {
 
   if (!session) return <LoginForm />;
   const teachers = readTeacherDatabase();
-  return <DashboardClient initialTeachers={teachers} />;
+  return <>
+    <DashboardClient initialTeachers={teachers} />
+    <SubjectBidirectionalEnhancer teachers={teachers} />
+  </>;
 }
