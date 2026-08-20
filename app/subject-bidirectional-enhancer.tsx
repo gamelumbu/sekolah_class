@@ -26,6 +26,12 @@ type SubjectRow = {
   total: number;
 };
 
+type SubjectSummaryRow = {
+  subject: string;
+  count: number;
+  avgActual: number;
+};
+
 const EMPTY_FILTERS: FilterSnapshot = {
   year: [], groupJenjang: [], jenjang: [], program: [], teacherCategory: [], school: [], status: [], individual: [], standardMode: "Gabungan", visible: false,
 };
@@ -121,19 +127,29 @@ function filterTeachers(teachers: Teacher[], filters: FilterSnapshot) {
   });
 }
 
-function buildRows(data: Teacher[], standards: Map<string, number>, metric: "jtm" | "actual") {
-  const subjectGroups = new Map<string, { label: string; teachers: Teacher[] }>();
-
+function groupTeachersBySubject(data: Teacher[]) {
+  const groups = new Map<string, { label: string; teachers: Teacher[] }>();
   data.forEach((teacher) => {
     splitSubjects(teacher.subject).forEach((subject) => {
       const key = subject.toLocaleLowerCase("id-ID");
-      const current = subjectGroups.get(key) || { label: subject, teachers: [] };
+      const current = groups.get(key) || { label: subject, teachers: [] };
       current.teachers.push(teacher);
-      subjectGroups.set(key, current);
+      groups.set(key, current);
     });
   });
+  return [...groups.values()];
+}
 
-  return [...subjectGroups.values()]
+function buildSummaryRows(data: Teacher[]) {
+  return groupTeachersBySubject(data).map(({ label, teachers }) => ({
+    subject: label,
+    count: new Set(teachers.map((teacher) => teacher.nik)).size,
+    avgActual: teachers.length ? teachers.reduce((sum, teacher) => sum + teacher.actual, 0) / teachers.length : 0,
+  }));
+}
+
+function buildRows(data: Teacher[], standards: Map<string, number>, metric: "jtm" | "actual") {
+  return groupTeachersBySubject(data)
     .map(({ label, teachers: rows }): SubjectRow => {
       let below = 0, equal = 0, above = 0;
       rows.forEach((teacher) => {
@@ -155,6 +171,20 @@ function standardCaption(standards: Map<string, number>, data: Teacher[]) {
   if (!active.length) return "Standar mengikuti data kepatuhan aktif";
   if (active.length === 1) return `Standar ${active[0]} JP`;
   return `Standar aktif ${active.join(" / ")} JP sesuai jenjang`;
+}
+
+function SummaryChart({ title, rows, metric }: { title: string; rows: SubjectSummaryRow[]; metric: "count" | "avg" }) {
+  const ordered = [...rows]
+    .sort((a, b) => metric === "count" ? b.count - a.count || a.subject.localeCompare(b.subject, "id") : b.avgActual - a.avgActual || a.subject.localeCompare(b.subject, "id"))
+    .slice(0, metric === "count" ? 15 : 10);
+  const max = Math.max(...ordered.map((row) => metric === "count" ? row.count : row.avgActual), 1);
+  return <section className={styles.card}>
+    <header className={styles.cardHeader}><div><p>Analisis Mata Pelajaran</p><h3>{title}</h3><span>Mapel dipisahkan per kategori dan mengikuti jenjang serta seluruh filter aktif</span></div></header>
+    <div className={styles.summaryList}>{ordered.map((row) => {
+      const value = metric === "count" ? row.count : row.avgActual;
+      return <div className={styles.summaryRow} key={row.subject}><span title={row.subject}>{row.subject}</span><i><b style={{ width: `${Math.max(value / max * 100, 2)}%` }} /></i><strong>{metric === "count" ? row.count : `${row.avgActual.toLocaleString("id-ID", { maximumFractionDigits: 1 })} JP`}</strong></div>;
+    })}</div>
+  </section>;
 }
 
 function DivergingChart({ title, metric, rows, caption }: { title: string; metric: "jtm" | "actual"; rows: SubjectRow[]; caption: string }) {
@@ -182,6 +212,14 @@ function DivergingChart({ title, metric, rows, caption }: { title: string; metri
   );
 }
 
+function hideLegacySubjectCharts(hidden: boolean) {
+  const titles = new Set(["Jumlah Guru per Mata Pelajaran", "Rata-rata Jam Aktual per Mapel"]);
+  document.querySelectorAll<HTMLElement>(".dashboard-body .chart-card").forEach((card) => {
+    const title = card.querySelector(".chart-heading h3")?.textContent?.trim() || "";
+    if (titles.has(title)) card.style.display = hidden ? "none" : "";
+  });
+}
+
 export default function SubjectBidirectionalEnhancer({ teachers }: { teachers: Teacher[] }) {
   const [filters, setFilters] = useState<FilterSnapshot>(EMPTY_FILTERS);
   const [target, setTarget] = useState<Element | null>(null);
@@ -195,6 +233,7 @@ export default function SubjectBidirectionalEnhancer({ teachers }: { teachers: T
         setFilters((current) => sameSnapshot(current, next) ? current : next);
         const nextTarget = next.visible ? document.querySelector(".dashboard-body .chart-grid") : null;
         setTarget((current) => current === nextTarget ? current : nextTarget);
+        hideLegacySubjectCharts(next.visible);
       }, 0);
     };
     sync();
@@ -207,17 +246,21 @@ export default function SubjectBidirectionalEnhancer({ teachers }: { teachers: T
       observer.disconnect();
       document.removeEventListener("click", sync, true);
       document.removeEventListener("change", sync, true);
+      hideLegacySubjectCharts(false);
     };
   }, []);
 
   const filtered = useMemo(() => filterTeachers(teachers, filters), [teachers, filters]);
   const standards = useMemo(() => deriveStandards(teachers), [teachers]);
+  const summaryRows = useMemo(() => buildSummaryRows(filtered), [filtered]);
   const jtmRows = useMemo(() => buildRows(filtered, standards, "jtm"), [filtered, standards]);
   const actualRows = useMemo(() => buildRows(filtered, standards, "actual"), [filtered, standards]);
   const caption = useMemo(() => standardCaption(standards, filtered), [standards, filtered]);
 
   if (!filters.visible || !target || !filtered.length) return null;
   return createPortal(<>
+    <SummaryChart title="Jumlah Guru per Mata Pelajaran" rows={summaryRows} metric="count" />
+    <SummaryChart title="Rata-rata Jam Aktual per Mapel" rows={summaryRows} metric="avg" />
     <DivergingChart title="Mapel Berdasarkan Jam Tatap Muka" metric="jtm" rows={jtmRows} caption={caption} />
     <DivergingChart title="Mapel Berdasarkan Jam Aktual" metric="actual" rows={actualRows} caption={caption} />
   </>, target);
