@@ -65,6 +65,20 @@ function sameSnapshot(a: FilterSnapshot, b: FilterSnapshot) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+function splitSubjects(value: string) {
+  const seen = new Set<string>();
+  return String(value || "")
+    .split(/\s*\/\s*/g)
+    .map((subject) => subject.trim())
+    .filter(Boolean)
+    .filter((subject) => {
+      const key = subject.toLocaleLowerCase("id-ID");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
 function deriveStandards(data: Teacher[]) {
   const byLevel = new Map<string, Teacher[]>();
   data.forEach((teacher) => byLevel.set(teacher.jenjang, [...(byLevel.get(teacher.jenjang) || []), teacher]));
@@ -108,20 +122,32 @@ function filterTeachers(teachers: Teacher[], filters: FilterSnapshot) {
 }
 
 function buildRows(data: Teacher[], standards: Map<string, number>, metric: "jtm" | "actual") {
-  const subjects = [...new Set(data.map((teacher) => teacher.subject).filter(Boolean))].sort((a, b) => a.localeCompare(b, "id"));
-  return subjects.map((subject): SubjectRow => {
-    const rows = data.filter((teacher) => teacher.subject === subject);
-    let below = 0, equal = 0, above = 0;
-    rows.forEach((teacher) => {
-      const threshold = standards.get(teacher.jenjang);
-      if (threshold === undefined) return;
-      const value = metric === "jtm" ? teacher.jtm : teacher.actual;
-      if (value < threshold) below += 1;
-      else if (value === threshold) equal += 1;
-      else above += 1;
+  const subjectGroups = new Map<string, { label: string; teachers: Teacher[] }>();
+
+  data.forEach((teacher) => {
+    splitSubjects(teacher.subject).forEach((subject) => {
+      const key = subject.toLocaleLowerCase("id-ID");
+      const current = subjectGroups.get(key) || { label: subject, teachers: [] };
+      current.teachers.push(teacher);
+      subjectGroups.set(key, current);
     });
-    return { subject, below, equal, above, total: below + equal + above };
-  }).filter((row) => row.total > 0);
+  });
+
+  return [...subjectGroups.values()]
+    .map(({ label, teachers: rows }): SubjectRow => {
+      let below = 0, equal = 0, above = 0;
+      rows.forEach((teacher) => {
+        const threshold = standards.get(teacher.jenjang);
+        if (threshold === undefined) return;
+        const value = metric === "jtm" ? teacher.jtm : teacher.actual;
+        if (value < threshold) below += 1;
+        else if (value === threshold) equal += 1;
+        else above += 1;
+      });
+      return { subject: label, below, equal, above, total: below + equal + above };
+    })
+    .filter((row) => row.total > 0)
+    .sort((a, b) => a.subject.localeCompare(b.subject, "id"));
 }
 
 function standardCaption(standards: Map<string, number>, data: Teacher[]) {
@@ -151,7 +177,7 @@ function DivergingChart({ title, metric, rows, caption }: { title: string; metri
           </div>
         </div>
       </div>
-      <footer className={styles.note}>Nilai tepat standar ditampilkan di tengah. Ambang setiap jenjang diturunkan dari status kepatuhan pada database aktif, sehingga chart tidak menyimpan angka standar per mapel secara hardcode.</footer>
+      <footer className={styles.note}>Setiap mata pelajaran ditampilkan sebagai kategori terpisah. Daftar mapel dibentuk setelah filter jenjang dan filter dashboard lain diterapkan, sehingga mapel yang tidak ada pada jenjang aktif tidak ditampilkan.</footer>
     </section>
   );
 }
