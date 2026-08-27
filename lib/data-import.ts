@@ -93,6 +93,7 @@ export function parseImportWorkbook(buffer: ArrayBuffer | Uint8Array): ParsedImp
 
   const years = [...new Set(profiles.map((item) => item.year).filter(Boolean))].sort();
   if (!profiles.length) errors.push({ sheet: PROFILE_SHEET, row: 0, field: "Data", message: "Tidak ada baris data guru yang dapat diimport." });
+  if (years.length > 1) errors.push({ sheet: PROFILE_SHEET, row: 0, field: "Tahun Pelajaran", message: `Satu proses import hanya boleh memuat satu Tahun Pelajaran. Ditemukan: ${years.join(", ")}.` });
   return { profiles, assignments, tasks, errors, warnings, years };
 }
 
