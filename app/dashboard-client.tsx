@@ -162,6 +162,13 @@ function standardBucket(value: number, threshold: number) {
   return `>${threshold}`;
 }
 
+const WAKASEK_BASE_TASK = "Wakil Kepala Sekolah";
+const WAKASEK_JTM_STANDARD = 12;
+
+function hasOtherWakasekTask(teacher: Teacher) {
+  return teacher.tasks.some((task) => task !== WAKASEK_BASE_TASK);
+}
+
 function matchesSegment(teacher: Teacher, group: string, value: string, standard: number) {
   if (group === "jenjang") return teacher.jenjang === value;
   if (group === "program") return teacher.program === value;
@@ -176,6 +183,7 @@ function matchesSegment(teacher: Teacher, group: string, value: string, standard
   if (group === "taskCount") return String(teacher.taskCount) === value;
   if (group === "taskType") return teacher.tasks.includes(value);
   if (group === "hasTask") return value === "Dengan tugas tambahan" ? teacher.taskHours > 0 : teacher.taskHours === 0;
+  if (group === "wakasekOtherTask") return value === "Dengan tugas tambahan lain" ? hasOtherWakasekTask(teacher) : !hasOtherWakasekTask(teacher);
   if (group === "nik") return teacher.nik === value;
   if (group === "role") {
     if (value === "Kasek") return teacher.statusIndividu === "Kasek";
@@ -496,6 +504,35 @@ function TaskPresencePie({ data, segments, onToggle }: { data: Teacher[]; segmen
         </g>)}
       </svg>
       <div className="task-pie-legend">{rows.map((item) => <button type="button" key={item.label} className={segments.hasTask?.includes(item.label) ? "is-selected" : ""} onClick={() => onToggle("hasTask", item.label)}><i style={{ background: item.color }} /><span>{item.label}</span><strong>{formatNumber(item.value)} · {formatPercent(item.value, total)}</strong></button>)}</div>
+    </div>
+  );
+}
+
+function WakasekJtmChart({ data, segments, onToggle }: { data: Teacher[]; segments: Segments; onToggle: (group: string, value: string) => void }) {
+  const categories = countByNumber(data, (teacher) => teacher.jtm);
+  const colors = {
+    below: "#D96C5F",
+    equal: "#7657C8",
+    above: "#2F6EB5",
+  };
+  const rows = categories.map((item) => ({
+    ...item,
+    category: Number(item.label.replace(",", ".")) < WAKASEK_JTM_STANDARD ? "Di bawah minimal JTM" : Number(item.label.replace(",", ".")) === WAKASEK_JTM_STANDARD ? "Sesuai minimal JTM" : "Di atas minimal JTM",
+    color: Number(item.label.replace(",", ".")) < WAKASEK_JTM_STANDARD ? colors.below : Number(item.label.replace(",", ".")) === WAKASEK_JTM_STANDARD ? colors.equal : colors.above,
+  }));
+  const max = Math.max(...rows.map((item) => item.value), 1);
+  return (
+    <div className="data-studio-scroll">
+      <div className="wakasek-jtm-chart" style={{ minWidth: Math.max(rows.length * 62, 720) }} data-export-json={JSON.stringify(rows.map((item) => ({ Total_JP_Tatap_Muka: item.label, Kategori: item.category, Jumlah_Tenaga_Pendidik: item.value })))} data-export-group="jtmValue" data-export-values={JSON.stringify(rows.map((item) => item.label))}>
+        <div className="wakasek-jtm-legend" aria-label="Legenda kategori JTM Wakasek"><span><i style={{ background: colors.above }} />Di atas minimal JTM</span><span><i style={{ background: colors.below }} />Di bawah minimal JTM</span><span><i style={{ background: colors.equal }} />Sesuai minimal JTM</span></div>
+        <div className="wakasek-jtm-bars">
+          {rows.map((item) => {
+            const selected = segments.jtmValue?.includes(item.label);
+            return <button type="button" key={item.label} className={`wakasek-jtm-column ${selected ? "is-selected" : ""}`} onClick={() => onToggle("jtmValue", item.label)} title={`${item.label} JP · ${item.category} · ${formatNumber(item.value)} Wakasek`} aria-label={`${item.label} JP, ${item.category}, ${formatNumber(item.value)} Wakasek. Klik untuk melihat detail.`}><span className="wakasek-jtm-bar-space"><span className="wakasek-jtm-bar" style={{ height: `${Math.max(item.value / max * 100, 3)}%`, background: item.color }}><strong>{formatNumber(item.value)}</strong></span></span><small>{item.label}</small></button>;
+          })}
+        </div>
+        <p className="data-studio-axis-title">Total JP Tatap Muka Per Individu</p>
+      </div>
     </div>
   );
 }
@@ -894,6 +931,7 @@ const segmentLabels: Record<string, string> = {
   payroll: "Payroll", gender: "Jenis kelamin", school: "Sekolah", subject: "Bidang studi",
   compliance: "Kepatuhan", schoolCount: "Jumlah lokasi", taskCount: "Jumlah jabatan tambahan",
   taskType: "Jenis tugas tambahan", hasTask: "Tugas tambahan", nik: "NIK", role: "Peran",
+  wakasekOtherTask: "Tugas tambahan lain Wakasek",
   jtmBucket: "Kelompok JTM", taskBucket: "Kelompok jam tugas", actualBucket: "Kelompok jam aktual",
   jtmValue: "Total JP tatap muka", taskHoursValue: "Total JP tugas tambahan", actualValue: "Total jam aktual",
   jtmStandard24: "Kelompok JTM", actualStandard24: "Kelompok jam aktual",
@@ -1183,7 +1221,7 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
 
           {activePage === "tasks" && <>
             <div className="tab-row" role="group" aria-label="Pilihan analisis tugas dan peran">{["Umum", "Wakasek", "BK", "Kasek"].map((tab) => <button type="button" className={taskTab === tab ? "active" : ""} aria-pressed={taskTab === tab} key={tab} onClick={() => { setTaskTab(tab); setSegments(tab === "Umum" ? {} : { role: [tab] }); }}><span aria-hidden="true" className="tab-choice-indicator" />{tab}</button>)}</div>
-            <div className="kpi-grid compact"><KpiCard label="Dengan Tugas Tambahan" value={formatNumber(pageData.filter((teacher) => teacher.taskHours > 0).length)} helper="Memiliki konversi jam" tone="gold" /><KpiCard label="Tanpa Tugas Tambahan" value={formatNumber(pageData.filter((teacher) => teacher.taskHours === 0).length)} helper="Tidak ada konversi tugas" /><KpiCard label="Rata-rata Jam Tugas" value={`${formatNumber(pageData.reduce((s, t) => s + t.taskHours, 0) / Math.max(pageData.length, 1), 1)} JP`} helper={`Kelompok ${taskTab}`} tone="green" /><KpiCard label="Lebih dari Satu Tugas" value={formatNumber(pageData.filter((teacher) => teacher.taskCount > 1).length)} helper="Perlu pemantauan beban" tone="red" /></div>
+            {taskTab === "Wakasek" ? <div className="kpi-grid compact"><KpiCard label="Total Wakasek" value={formatNumber(pageData.length)} helper="NIK unik sesuai filter aktif" tone="navy" /><KpiCard label="JTM di Bawah 12 JP" value={formatNumber(pageData.filter((teacher) => teacher.jtm < WAKASEK_JTM_STANDARD).length)} helper="Di bawah ambang visual Wakasek" tone="red" /><KpiCard label="JTM Tepat 12 JP" value={formatNumber(pageData.filter((teacher) => teacher.jtm === WAKASEK_JTM_STANDARD).length)} helper="Sesuai konversi Wakasek pada pedoman" tone="gold" /><KpiCard label="Dengan Tugas Tambahan Lain" value={formatNumber(pageData.filter(hasOtherWakasekTask).length)} helper="Merangkap selain Wakil Kepala Sekolah" tone="green" /></div> : <div className="kpi-grid compact"><KpiCard label="Dengan Tugas Tambahan" value={formatNumber(pageData.filter((teacher) => teacher.taskHours > 0).length)} helper="Memiliki konversi jam" tone="gold" /><KpiCard label="Tanpa Tugas Tambahan" value={formatNumber(pageData.filter((teacher) => teacher.taskHours === 0).length)} helper="Tidak ada konversi tugas" /><KpiCard label="Rata-rata Jam Tugas" value={`${formatNumber(pageData.reduce((s, t) => s + t.taskHours, 0) / Math.max(pageData.length, 1), 1)} JP`} helper={`Kelompok ${taskTab}`} tone="green" /><KpiCard label="Lebih dari Satu Tugas" value={formatNumber(pageData.filter((teacher) => teacher.taskCount > 1).length)} helper="Perlu pemantauan beban" tone="red" /></div>}
             {taskTab === "Umum" ? <div className="chart-grid task-chart-grid">
               <ChartCard title="TENAGA PENDIDIK BERDASARKAN TUGAS TAMBAHAN" subtitle="Satu NIK per tenaga pendidik"><TaskPresencePie data={taskChartData} segments={segments} onToggle={toggleSegment} /></ChartCard>
               <ChartCard title="Jumlah Tenaga Pendidik berdasarkan Tugas Tambahan" subtitle="Posisi: jam dan jumlah jabatan · ukuran: jumlah guru"><TaskBubbleChart data={taskChartData} segments={segments} onToggle={toggleSegment} /></ChartCard>
@@ -1192,6 +1230,13 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
               <ChartCard title="Jumlah Jabatan Tambahan" subtitle="Jumlah NIK unik per banyaknya jabatan"><DataStudioBarChart data={countByNumber(taskChartData, (teacher) => teacher.taskCount)} group="taskCount" segments={segments} onToggle={toggleSegment} axisTitle="Jumlah Jabatan Tambahan Per Individu" /></ChartCard>
               <ChartCard title="Jenis Tugas Tambahan" subtitle="10 jenis tugas terbanyak"><HorizontalBars data={countBy(taskChartData.flatMap((teacher) => teacher.tasks.map((task) => ({ task }))), (item) => item.task)} group="taskType" segments={segments} onToggle={toggleSegment} maxItems={10} /></ChartCard>
               <ChartCard title="Status Kontrak dan Jumlah Jabatan Tambahan" subtitle="Grouped vertical bars non-stacked · seluruh NIK unik" wide><GroupedTaskBars data={taskChartData} categoryGetter={(teacher) => teacher.status} categoryGroup="status" categoryOrder={["PKWTT", "PKWT Penuh Waktu", "PKWT Pensiun", "PKWT Paruh Waktu", "PKWT Ekspatriat"]} series={[0, 1, 2, 3]} segments={segments} onToggle={toggleSegment} axisTitle="Status Kontrak" /></ChartCard>
+            </div> : taskTab === "Wakasek" ? <div className="chart-grid task-chart-grid">
+              <ChartCard title="JUMLAH JAM TATAP MUKA WAKASEK" subtitle="Distribusi JTM Wakasek · ambang 12 JP sesuai visual dan konversi pada pedoman"><WakasekJtmChart data={taskChartData} segments={segments} onToggle={toggleSegment} /></ChartCard>
+              <ChartCard title="DENGAN TUGAS TAMBAHAN" subtitle="Wakasek dengan atau tanpa tugas tambahan lain"><DonutChart data={[{ label: "Tanpa tugas tambahan lain", value: taskChartData.filter((teacher) => !hasOtherWakasekTask(teacher)).length }, { label: "Dengan tugas tambahan lain", value: taskChartData.filter(hasOtherWakasekTask).length }]} group="wakasekOtherTask" segments={segments} onToggle={toggleSegment} /></ChartCard>
+              <ChartCard title="Jenis Tugas Tambahan Lain - Wakasek" subtitle="Tugas selain Wakil Kepala Sekolah · klik untuk melihat nama karyawan"><HorizontalBars data={countBy(taskChartData.flatMap((teacher) => teacher.tasks.filter((task) => task !== WAKASEK_BASE_TASK).map((task) => ({ task }))), (item) => item.task)} group="taskType" segments={segments} onToggle={toggleSegment} maxItems={10} /></ChartCard>
+              <ChartCard title="Persebaran Wakasek per Jenjang" subtitle="Urutan TK, SD, SMP, SLTA, dan Internasional"><HorizontalBars data={countBy(taskChartData, (teacher) => teacher.jenjang)} group="jenjang" segments={segments} onToggle={toggleSegment} maxItems={6} /></ChartCard>
+              <ChartCard title="Jam Tugas Tambahan Wakasek" subtitle="Distribusi konversi jam tugas tambahan"><Histogram data={taskChartData} metric={(teacher) => teacher.taskHours} group="taskBucket" segments={segments} onToggle={toggleSegment} /></ChartCard>
+              <ChartCard title="Jumlah Tugas per Wakasek" subtitle="Distribusi banyaknya tugas yang dirangkap"><ColumnChart data={countBy(taskChartData, (teacher) => String(teacher.taskCount))} group="taskCount" segments={segments} onToggle={toggleSegment} /></ChartCard>
             </div> : <div className="chart-grid task-chart-grid">
               <ChartCard title={`Jenis Tugas Tambahan - ${taskTab}`} subtitle="Klik jenis tugas untuk melihat nama karyawan"><HorizontalBars data={countBy(taskChartData.flatMap((teacher) => teacher.tasks.map((task) => ({ task }))), (item) => item.task)} group="taskType" segments={segments} onToggle={toggleSegment} maxItems={10} /></ChartCard>
               <ChartCard title="Jumlah Tugas per Individu" subtitle="Distribusi banyaknya tugas"><ColumnChart data={countBy(taskChartData, (teacher) => String(teacher.taskCount))} group="taskCount" segments={segments} onToggle={toggleSegment} /></ChartCard>

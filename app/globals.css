@@ -1729,3 +1729,120 @@ footer { font-size: 10px; }
   font-size: 6.25px;
   font-weight: 850;
 }
+
+/* Wakasek workload analysis: 12 JP reference from the attached teaching-hours guide */
+.wakasek-jtm-chart {
+  display: flex;
+  min-height: 338px;
+  flex-direction: column;
+  padding-top: 2px;
+}
+
+.wakasek-jtm-legend {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #52657b;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.wakasek-jtm-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.wakasek-jtm-legend i {
+  width: 22px;
+  height: 9px;
+  border-radius: 3px;
+}
+
+.wakasek-jtm-bars {
+  display: flex;
+  height: 260px;
+  align-items: stretch;
+  gap: 3px;
+  border-bottom: 1px solid #b8c1cc;
+  background: repeating-linear-gradient(to top, transparent 0, transparent 64px, #edf2f7 65px);
+}
+
+.wakasek-jtm-column {
+  display: grid;
+  min-width: 48px;
+  flex: 1;
+  grid-template-rows: 1fr 28px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: #35485e;
+  cursor: pointer;
+}
+
+.wakasek-jtm-bar-space {
+  display: flex;
+  min-height: 0;
+  align-items: flex-end;
+  justify-content: center;
+  padding-top: 26px;
+}
+
+.wakasek-jtm-bar {
+  position: relative;
+  display: block;
+  width: min(30px, 72%);
+  min-height: 4px;
+  border-radius: 4px 4px 0 0;
+  box-shadow: 0 3px 8px rgba(25, 57, 92, .13);
+  transition: filter .16s ease, transform .16s ease;
+}
+
+.wakasek-jtm-bar strong {
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  color: #315d8c;
+  font-size: 9.5px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.wakasek-jtm-column small {
+  align-self: start;
+  margin-top: 7px;
+  font-size: 10px;
+  font-weight: 750;
+  text-align: center;
+}
+
+.wakasek-jtm-column:hover .wakasek-jtm-bar,
+.wakasek-jtm-column.is-selected .wakasek-jtm-bar {
+  filter: saturate(1.15) brightness(.93);
+  transform: scaleX(1.08);
+}
+
+.wakasek-jtm-column:focus-visible {
+  border-radius: 7px;
+  outline: 3px solid rgba(47, 110, 181, .24);
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .wakasek-jtm-legend {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wakasek-jtm-bar {
+    transition: none;
+  }
+}
