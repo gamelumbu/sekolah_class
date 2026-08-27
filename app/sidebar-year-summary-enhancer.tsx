@@ -74,7 +74,7 @@ export default function SidebarYearSummaryEnhancer({ teachers }: { teachers: Tea
         <strong>{title}</strong>
         <span>{helper}</span>
       </div>
-      <img className="sidebar-year-mascot" src="/penabur-mascot-sidebar.png" alt="" aria-hidden="true" />
+      <img className="sidebar-year-mascot" src="/penabur-mascot-sidebar.svg" alt="" aria-hidden="true" />
     </>,
     target
   );
