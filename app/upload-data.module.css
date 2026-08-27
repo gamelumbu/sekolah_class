@@ -22,6 +22,12 @@
 .cardHead,.validationHead { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:16px; }
 .cardHead h3,.validationHead h3 { margin:4px 0 0; font-size:20px; }
 .cardHead b { padding:7px 10px; background:#f0f4f8; border-radius:8px; color:#60758b; font-size:12px; }
+.templateShortcut { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:-2px 0 16px; padding:13px 14px; border:1px solid #d5e3f0; border-radius:12px; background:#f4f9fd; }
+.templateShortcut div { display:flex; flex-direction:column; gap:3px; }
+.templateShortcut strong { font-size:13px; color:#244f78; }
+.templateShortcut small { color:#70879c; line-height:1.4; }
+.templateShortcut a { flex:0 0 auto; text-decoration:none; border:1px solid #aac4dc; background:#fff; color:#1f5f9b; border-radius:9px; padding:9px 12px; font-size:12px; font-weight:800; }
+.templateShortcut a:hover { background:#eaf4fc; }
 .dropzone { min-height:170px; border:2px dashed #b7c9da; border-radius:16px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; cursor:pointer; background:#f9fbfd; }
 .dropzone:hover { border-color:#5c8dbc; background:#f4f9fd; }
 .dropzone input { display:none; }
@@ -64,4 +70,4 @@
 .importBar small { display:block; margin-top:4px; color:#75889b; }
 .importBar button { border:0; background:#247548; color:#fff; border-radius:11px; padding:12px 18px; font-weight:800; cursor:pointer; min-width:180px; }
 .result { margin-top:14px; border-radius:10px; padding:12px 14px; background:#edf4fa; color:#244e76; font-weight:700; }
-@media (max-width: 900px) { .body,.topbar{padding-left:18px;padding-right:18px}.hero{flex-direction:column;align-items:flex-start}.heroActions{align-items:flex-start}.heroActions small{text-align:left}.steps,.grid,.stats{grid-template-columns:1fr}.issueError,.issueWarning{grid-template-columns:1fr}.importBar{align-items:flex-start;flex-direction:column}.importBar button{width:100%} }
+@media (max-width: 900px) { .body,.topbar{padding-left:18px;padding-right:18px}.hero{flex-direction:column;align-items:flex-start}.heroActions{align-items:flex-start}.heroActions small{text-align:left}.steps,.grid,.stats{grid-template-columns:1fr}.templateShortcut{align-items:flex-start;flex-direction:column}.issueError,.issueWarning{grid-template-columns:1fr}.importBar{align-items:flex-start;flex-direction:column}.importBar button{width:100%} }
