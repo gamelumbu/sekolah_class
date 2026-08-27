@@ -113,6 +113,10 @@ export default function UploadDataEnhancer() {
         <div className={styles.grid}>
           <section className={styles.card}>
             <div className={styles.cardHead}><div><span>SUMBER DATA</span><h3>Upload file Excel</h3></div><b>.xlsx / .xls</b></div>
+            <div className={styles.templateShortcut}>
+              <div><strong>Belum punya format datanya?</strong><small>Gunakan template resmi dashboard yang sudah dilengkapi petunjuk dan contoh pengisian.</small></div>
+              <a href="/api/data-import/template">Download Template + Contoh</a>
+            </div>
             <label className={styles.dropzone}>
               <input type="file" accept=".xlsx,.xls" onChange={(event) => { setFile(event.target.files?.[0] || null); if (event.target.files?.[0]) setGoogleUrl(""); resetValidation(); }} />
               <span className={styles.uploadIcon}>↑</span><strong>{file ? file.name : "Pilih file Excel"}</strong><small>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "Maksimal 15 MB"}</small>
