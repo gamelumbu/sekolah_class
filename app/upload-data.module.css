@@ -1,4 +1,7 @@
 :global(.main-content.data-upload-open) > *:not(.portal) { display: none !important; }
+:global(.sidebar nav:has(> button[data-upload-nav="true"].active) > button.active:not([data-upload-nav="true"])) { background: transparent !important; color: rgba(255,255,255,.72) !important; border-color: transparent !important; box-shadow: none !important; transform: none !important; }
+:global(.sidebar nav:has(> button[data-upload-nav="true"].active) > button.active:not([data-upload-nav="true"])::after) { display: none !important; }
+:global(.sidebar nav:has(> button[data-upload-nav="true"].active) > button.active:not([data-upload-nav="true"]):hover) { background: rgba(255,255,255,.07) !important; color: #fff !important; transform: translateX(2px) !important; }
 .portal { display:block !important; width:100%; min-height:100vh; }
 .page { min-height: 100vh; background: #f4f7fb; color: #17324f; }
 .topbar { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:24px 30px; background:#fff; border-bottom:1px solid #dce5ef; }
