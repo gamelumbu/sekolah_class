@@ -3,6 +3,7 @@ import DashboardClient from "./dashboard-client";
 import LoginForm from "./login-form";
 import SubjectBidirectionalEnhancer from "./subject-bidirectional-enhancer";
 import BKWorkloadEnhancer from "./bk-workload-enhancer";
+import TaskHoursExactEnhancer from "./task-hours-exact-enhancer";
 import { authCookie, verifySession } from "@/lib/auth";
 import { readTeacherDatabase } from "@/lib/teacher-data";
 
@@ -17,5 +18,6 @@ export default async function Home() {
     <DashboardClient initialTeachers={teachers} />
     <SubjectBidirectionalEnhancer teachers={teachers} />
     <BKWorkloadEnhancer teachers={teachers} />
+    <TaskHoursExactEnhancer teachers={teachers} />
   </>;
 }
