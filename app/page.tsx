@@ -12,6 +12,7 @@ export default async function Home() {
   if (!session) return <LoginForm />;
   const teachers = readTeacherDatabase();
   return <>
+    <style>{`.chart-card:has(.wakasek-teacher-table) { display: none !important; }`}</style>
     <DashboardClient initialTeachers={teachers} />
     <SubjectBidirectionalEnhancer teachers={teachers} />
   </>;
