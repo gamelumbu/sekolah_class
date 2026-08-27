@@ -43,6 +43,19 @@ export default function UploadDataEnhancer() {
     return () => mainTarget.classList.remove("data-upload-open");
   }, [mainTarget, open]);
 
+  useEffect(() => {
+    if (!navTarget) return;
+    const closeOnOtherMenu = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const button = target.closest("button");
+      if (!button || button.dataset.uploadNav === "true") return;
+      setOpen(false);
+    };
+    navTarget.addEventListener("click", closeOnOtherMenu);
+    return () => navTarget.removeEventListener("click", closeOnOtherMenu);
+  }, [navTarget]);
+
   const sourceReady = Boolean(file || googleUrl.trim());
   const canImport = Boolean(validation?.ok && sourceReady && !busy);
   const issues = useMemo(() => [...(validation?.errors || []), ...(validation?.warnings || [])], [validation]);
@@ -85,14 +98,14 @@ export default function UploadDataEnhancer() {
   }
 
   const nav = navTarget ? createPortal(
-    <button type="button" className={open ? "active" : ""} onClick={() => setOpen(true)}>
+    <button data-upload-nav="true" type="button" className={open ? "active" : ""} onClick={() => setOpen(true)}>
       <span className="menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0-11-4 4m4-4 4 4"/><path d="M5 13v5.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V13"/></svg></span>
       <div><strong>Upload Data</strong><small>Import tahun pelajaran</small></div>
     </button>, navTarget
   ) : null;
 
   const page = open && mainTarget ? createPortal(
-    <div className={`data-upload-portal ${styles.page}`}>
+    <div className={`${styles.portal} ${styles.page}`}>
       <header className={styles.topbar}>
         <div><p>Administrasi Data</p><h1>Upload Data Tahun Pelajaran</h1></div>
         <button type="button" className={styles.back} onClick={() => setOpen(false)}>← Kembali ke Dashboard</button>
