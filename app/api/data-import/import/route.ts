@@ -88,6 +88,8 @@ export async function POST(request: Request) {
       sql`
         WITH source AS (
           SELECT * FROM jsonb_to_recordset(${assignmentsJson}::jsonb) AS x(year text, nik text, school text, subject text, "className" text, jtm numeric, "isPrimary" boolean)
+        ), uploaded_profiles AS (
+          SELECT year, nik FROM jsonb_to_recordset(${profilesJson}::jsonb) AS p(year text, nik text)
         ), school_upsert AS (
           INSERT INTO schools(name) SELECT DISTINCT school FROM source WHERE school <> ''
           ON CONFLICT (name) DO NOTHING RETURNING id
@@ -96,7 +98,7 @@ export async function POST(request: Request) {
           ON CONFLICT (name) DO NOTHING RETURNING id
         ), targets AS (
           SELECT p.id FROM teacher_year_profiles p JOIN teachers t ON t.id=p.teacher_id JOIN academic_years ay ON ay.id=p.academic_year_id
-          WHERE (ay.code || '|' || t.nik) IN (SELECT year || '|' || nik FROM source)
+          WHERE (ay.code || '|' || t.nik) IN (SELECT year || '|' || nik FROM uploaded_profiles)
         ), deleted AS (DELETE FROM teacher_assignments WHERE profile_id IN (SELECT id FROM targets))
         INSERT INTO teacher_assignments(profile_id, school_id, subject_id, class_name, jtm, is_primary)
         SELECT p.id, sc.id, sub.id, COALESCE(NULLIF(s."className",''),'-'), s.jtm, s."isPrimary"
@@ -108,9 +110,11 @@ export async function POST(request: Request) {
       sql`
         WITH source AS (
           SELECT * FROM jsonb_to_recordset(${tasksJson}::jsonb) AS x(year text, nik text, "taskName" text, "taskCategory" text, hours numeric, "isPrimary" boolean)
+        ), uploaded_profiles AS (
+          SELECT year, nik FROM jsonb_to_recordset(${profilesJson}::jsonb) AS p(year text, nik text)
         ), targets AS (
           SELECT p.id FROM teacher_year_profiles p JOIN teachers t ON t.id=p.teacher_id JOIN academic_years ay ON ay.id=p.academic_year_id
-          WHERE (ay.code || '|' || t.nik) IN (SELECT year || '|' || nik FROM source)
+          WHERE (ay.code || '|' || t.nik) IN (SELECT year || '|' || nik FROM uploaded_profiles)
         ), deleted AS (DELETE FROM teacher_tasks WHERE profile_id IN (SELECT id FROM targets)), inserted AS (
           INSERT INTO teacher_tasks(profile_id, task_name, task_category, hours, is_primary)
           SELECT p.id, s."taskName", NULLIF(s."taskCategory",''), s.hours, s."isPrimary"
