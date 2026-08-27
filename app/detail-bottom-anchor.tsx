@@ -4,14 +4,6 @@ import { useEffect } from "react";
 
 const ANCHOR_ID = "dashboard-enhancer-slot";
 
-function findDetailSection(body: HTMLElement) {
-  const candidates = Array.from(body.querySelectorAll<HTMLElement>("section,div"));
-  return candidates.find((element) => {
-    const text = element.textContent || "";
-    return text.includes("Detail terpilih") && text.includes("Data Karyawan Sesuai Pilihan Chart");
-  }) || null;
-}
-
 export default function DetailBottomAnchor() {
   useEffect(() => {
     const ensureAnchor = () => {
@@ -22,12 +14,16 @@ export default function DetailBottomAnchor() {
       if (!anchor) {
         anchor = document.createElement("div");
         anchor.id = ANCHOR_ID;
-        anchor.style.display = "contents";
+        anchor.style.display = "grid";
+        anchor.style.gap = "18px";
+        anchor.style.marginTop = "18px";
       }
 
-      const detail = findDetailSection(body);
+      const detail = body.querySelector<HTMLElement>(".detail-section");
       if (detail?.parentElement) {
-        detail.parentElement.insertBefore(anchor, detail);
+        if (anchor.parentElement !== detail.parentElement || anchor.nextElementSibling !== detail) {
+          detail.parentElement.insertBefore(anchor, detail);
+        }
       } else if (!anchor.parentElement) {
         body.appendChild(anchor);
       }
