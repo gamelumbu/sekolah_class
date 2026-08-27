@@ -5,14 +5,9 @@ import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import type { Teacher } from "@/app/dashboard-client";
 
-const EXPECTED_TOTAL = 2230;
-const EXPECTED_NON_KASEK_CATEGORIES: Record<string, number> = {
-  "Guru Nasional": 1867,
-  "Guru Bilingual": 123,
-  "Guru Internasional": 170,
-};
 const VALID_LEVELS = new Set(["TK", "SD", "SMP", "SLTA", "Internasional"]);
 const VALID_GROUP_LEVELS = new Set(["TK", "SD", "SMP", "SLTA", "Primary", "Secondary"]);
+const VALID_INDIVIDUAL_STATUS = new Set(["Kasek", "Non-Kasek"]);
 
 let cachedTeachers: Teacher[] | undefined;
 
@@ -30,6 +25,11 @@ function number(value: unknown, field: string, nik: string) {
   return normalized;
 }
 
+function boolean(value: unknown, field: string, nik: string) {
+  if (typeof value !== "boolean") throw new Error(`Database guru tidak valid: ${field} untuk NIK ${nik} harus boolean.`);
+  return value;
+}
+
 function stringList(value: unknown) {
   if (!Array.isArray(value)) return [];
   return [...new Set(value.map((item) => String(item ?? "").trim()).filter(Boolean))];
@@ -41,6 +41,8 @@ function normalizeTeacher(value: unknown): Teacher {
   const nik = text(source.nik, "NIK", "tidak diketahui").padStart(7, "0");
   const jenjang = text(source.jenjang, "Jenjang", nik);
   const groupJenjang = text(source.groupJenjang, "Grup Jenjang", nik);
+  const statusIndividu = text(source.statusIndividu, "Status Individu", nik);
+  const year = text(source.year, "Tahun Pelajaran", nik).replace(/\s*\/\s*/g, "/");
   const jtm = number(source.jtm, "JTM", nik);
   const taskHours = number(source.taskHours, "Jam Tugas", nik);
   const actual = number(source.actual, "Jam Aktual", nik);
@@ -50,13 +52,15 @@ function normalizeTeacher(value: unknown): Teacher {
 
   if (!VALID_LEVELS.has(jenjang)) throw new Error(`Database guru tidak valid: Jenjang ${jenjang} untuk NIK ${nik}.`);
   if (!VALID_GROUP_LEVELS.has(groupJenjang)) throw new Error(`Database guru tidak valid: Grup Jenjang ${groupJenjang} untuk NIK ${nik}.`);
+  if (!VALID_INDIVIDUAL_STATUS.has(statusIndividu)) throw new Error(`Database guru tidak valid: Status Individu ${statusIndividu} untuk NIK ${nik}.`);
+  if (!/^\d{4}\/\d{4}$/.test(year)) throw new Error(`Database guru tidak valid: Tahun Pelajaran ${year} untuk NIK ${nik}.`);
   if (jenjang === "Internasional" && !["Primary", "Secondary"].includes(groupJenjang)) {
     throw new Error(`Database guru tidak valid: Grup Jenjang Internasional untuk NIK ${nik}.`);
   }
   if (jenjang !== "Internasional" && groupJenjang !== jenjang) {
     throw new Error(`Database guru tidak valid: Jenjang dan Grup Jenjang tidak selaras untuk NIK ${nik}.`);
   }
-  if (actual !== jtm + taskHours) {
+  if (Math.abs(actual - (jtm + taskHours)) > 0.001) {
     throw new Error(`Database guru tidak valid: Jam Aktual tidak sama dengan JTM + Jam Tugas untuk NIK ${nik}.`);
   }
 
@@ -75,9 +79,9 @@ function normalizeTeacher(value: unknown): Teacher {
     schoolCount: locations.length,
     crossLevel: text(source.crossLevel, "Lintas Jenjang", nik),
     locations,
-    statusIndividu: text(source.statusIndividu, "Status Individu", nik),
-    isWakasek: Boolean(source.isWakasek),
-    isBK: Boolean(source.isBK),
+    statusIndividu,
+    isWakasek: boolean(source.isWakasek, "isWakasek", nik),
+    isBK: boolean(source.isBK, "isBK", nik),
     jtm,
     taskHours,
     actual,
@@ -85,25 +89,22 @@ function normalizeTeacher(value: unknown): Teacher {
     tasks,
     className: String(source.className ?? "-").trim() || "-",
     compliance: actual < threshold ? "Di bawah standar" : actual === threshold ? "Tepat standar" : "Di atas standar",
-    year: text(source.year, "Tahun Pelajaran", nik).replace(/\s*\/\s*/g, "/"),
+    year,
   };
 }
 
 function validateDatabase(teachers: Teacher[]) {
-  if (teachers.length !== EXPECTED_TOTAL) {
-    throw new Error(`Database guru tidak valid: ditemukan ${teachers.length} NIK, seharusnya ${EXPECTED_TOTAL}.`);
+  if (!teachers.length) throw new Error("Database guru tidak valid: tidak ada data tenaga pendidik.");
+
+  const uniqueKeys = new Set<string>();
+  for (const teacher of teachers) {
+    const key = `${teacher.year}|${teacher.nik}`;
+    if (uniqueKeys.has(key)) throw new Error(`Database guru tidak valid: NIK ${teacher.nik} duplikat pada TP ${teacher.year}.`);
+    uniqueKeys.add(key);
   }
-  const uniqueNiks = new Set(teachers.map((teacher) => teacher.nik));
-  if (uniqueNiks.size !== teachers.length) {
-    throw new Error(`Database guru tidak valid: ditemukan ${teachers.length - uniqueNiks.size} NIK duplikat.`);
-  }
-  const nonKasek = teachers.filter((teacher) => teacher.statusIndividu === "Non-Kasek");
-  for (const [category, expected] of Object.entries(EXPECTED_NON_KASEK_CATEGORIES)) {
-    const actual = nonKasek.filter((teacher) => teacher.teacherCategory === category).length;
-    if (actual !== expected) {
-      throw new Error(`Database guru tidak valid: ${category} berjumlah ${actual}, seharusnya ${expected}.`);
-    }
-  }
+
+  const years = new Set(teachers.map((teacher) => teacher.year));
+  if (!years.size) throw new Error("Database guru tidak valid: Tahun Pelajaran tidak tersedia.");
 }
 
 export function readTeacherDatabase() {
@@ -111,7 +112,7 @@ export function readTeacherDatabase() {
   const compressed = readFileSync(join(process.cwd(), "app", "data", "teachers.json.gz"));
   const source = JSON.parse(gunzipSync(compressed).toString("utf8")) as unknown;
   if (!Array.isArray(source)) throw new Error("Database guru tidak valid: format utama harus berupa array.");
-  const teachers = source.map(normalizeTeacher).sort((a, b) => a.nik.localeCompare(b.nik, "id"));
+  const teachers = source.map(normalizeTeacher).sort((a, b) => a.year.localeCompare(b.year, "id") || a.nik.localeCompare(b.nik, "id"));
   validateDatabase(teachers);
   cachedTeachers = teachers;
   return teachers;
