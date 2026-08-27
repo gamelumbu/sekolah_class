@@ -475,11 +475,7 @@ function DataStudioBarChart({ data, group, segments, onToggle, axisTitle }: {
   );
 }
 
-function TaskPresencePie({ data, segments, onToggle }: { data: Teacher[]; segments: Segments; onToggle: (group: string, value: string) => void }) {
-  const rows = [
-    { label: "Dengan tugas tambahan", value: data.filter((teacher) => teacher.taskHours > 0).length, color: "#2F6EB5" },
-    { label: "Tanpa Tugas Tambahan", value: data.filter((teacher) => teacher.taskHours === 0).length, color: "#E0A72B" },
-  ];
+function InteractiveTaskPie({ rows, group, segments, onToggle, ariaLabel, unitLabel, exportRows }: { rows: Array<{ label: string; value: number; color: string }>; group: string; segments: Segments; onToggle: (group: string, value: string) => void; ariaLabel: string; unitLabel: string; exportRows: Array<Record<string, string | number>> }) {
   const total = Math.max(rows.reduce((sum, item) => sum + item.value, 0), 1);
   let cursor = -90;
   const slices = rows.map((item) => {
@@ -489,23 +485,30 @@ function TaskPresencePie({ data, segments, onToggle }: { data: Teacher[]; segmen
     const point = (angle: number, radius: number) => ({ x: 120 + radius * Math.cos(angle * Math.PI / 180), y: 120 + radius * Math.sin(angle * Math.PI / 180) });
     const startPoint = point(start, 105);
     const endPoint = point(end, 105);
-    const labelPoint = point((start + end) / 2, 67);
-    return { ...item, start, end, startPoint, endPoint, labelPoint, largeArc: end - start > 180 ? 1 : 0 };
+    const labelPoint = rows.length === 1 ? { x: 120, y: 120 } : point((start + end) / 2, 67);
+    return { ...item, startPoint, endPoint, labelPoint, largeArc: end - start > 180 ? 1 : 0 };
   });
   return (
-    <div className="task-pie-layout" data-export-json={JSON.stringify(rows.map((item) => ({ Kategori: item.label, Jumlah_Tenaga_Pendidik: item.value, Persentase: Number((item.value / total * 100).toFixed(2)) })))} data-export-group="hasTask" data-export-values={JSON.stringify(rows.map((item) => item.label))}>
-      <svg className="task-pie" viewBox="0 0 240 240" role="img" aria-label="Tenaga pendidik berdasarkan tugas tambahan">
-        {slices.map((slice) => <g key={slice.label} role="button" tabIndex={0} className={segments.hasTask?.includes(slice.label) ? "is-selected" : ""} onClick={() => onToggle("hasTask", slice.label)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onToggle("hasTask", slice.label); }}>
-          <path d={`M 120 120 L ${slice.startPoint.x} ${slice.startPoint.y} A 105 105 0 ${slice.largeArc} 1 ${slice.endPoint.x} ${slice.endPoint.y} Z`} fill={slice.color} stroke="#fff" strokeWidth="2" />
-          <text x={slice.labelPoint.x} y={slice.labelPoint.y} textAnchor="middle" dominantBaseline="middle">
-            <tspan x={slice.labelPoint.x} dy="-0.35em">{formatNumber(slice.value)}</tspan>
-            <tspan className="task-pie-percent" x={slice.labelPoint.x} dy="1.25em">{formatPercent(slice.value, total)}</tspan>
-          </text>
+    <div className="task-pie-layout" data-export-json={JSON.stringify(exportRows)} data-export-group={group} data-export-values={JSON.stringify(rows.map((item) => item.label))}>
+      <svg className="task-pie" viewBox="0 0 240 240" role="img" aria-label={ariaLabel}>
+        {slices.map((slice) => <g key={slice.label} role="button" tabIndex={0} className={segments[group]?.includes(slice.label) ? "is-selected" : ""} onClick={() => onToggle(group, slice.label)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onToggle(group, slice.label); } }} aria-label={`${slice.label}: ${formatNumber(slice.value)} ${unitLabel} (${formatPercent(slice.value, total)}). Klik untuk melihat detail.`}>
+          <path d={rows.length === 1 ? "M 120 15 A 105 105 0 1 1 119.99 15 Z" : `M 120 120 L ${slice.startPoint.x} ${slice.startPoint.y} A 105 105 0 ${slice.largeArc} 1 ${slice.endPoint.x} ${slice.endPoint.y} Z`} fill={slice.color} stroke="#fff" strokeWidth="2" />
+          <text x={slice.labelPoint.x} y={slice.labelPoint.y} textAnchor="middle" dominantBaseline="middle"><tspan x={slice.labelPoint.x} dy="-2">{formatNumber(slice.value)}</tspan><tspan className="task-pie-percent" x={slice.labelPoint.x} dy="12">{formatPercent(slice.value, total)}</tspan></text>
+          <title>{slice.label}: {formatNumber(slice.value)} {unitLabel} ({formatPercent(slice.value, total)})</title>
         </g>)}
       </svg>
-      <div className="task-pie-legend">{rows.map((item) => <button type="button" key={item.label} className={segments.hasTask?.includes(item.label) ? "is-selected" : ""} onClick={() => onToggle("hasTask", item.label)}><i style={{ background: item.color }} /><span>{item.label}</span><strong>{formatNumber(item.value)} · {formatPercent(item.value, total)}</strong></button>)}</div>
+      <div className="task-pie-legend">{rows.map((item) => <button type="button" key={item.label} className={segments[group]?.includes(item.label) ? "is-selected" : ""} onClick={() => onToggle(group, item.label)}><i style={{ background: item.color }} /><span>{item.label}</span><strong>{formatNumber(item.value)} · {formatPercent(item.value, total)}</strong></button>)}</div>
     </div>
   );
+}
+
+function TaskPresencePie({ data, segments, onToggle }: { data: Teacher[]; segments: Segments; onToggle: (group: string, value: string) => void }) {
+  const rows = [
+    { label: "Dengan tugas tambahan", value: data.filter((teacher) => teacher.taskHours > 0).length, color: "#2F6EB5" },
+    { label: "Tanpa Tugas Tambahan", value: data.filter((teacher) => teacher.taskHours === 0).length, color: "#E0A72B" },
+  ].filter((item) => item.value > 0);
+  const total = Math.max(rows.reduce((sum, item) => sum + item.value, 0), 1);
+  return <InteractiveTaskPie rows={rows} group="hasTask" segments={segments} onToggle={onToggle} ariaLabel="Tenaga pendidik berdasarkan tugas tambahan" unitLabel="tenaga pendidik" exportRows={rows.map((item) => ({ Kategori: item.label, Jumlah_Tenaga_Pendidik: item.value, Persentase: Number((item.value / total * 100).toFixed(2)) }))} />;
 }
 
 function WakasekJtmChart({ data, segments, onToggle }: { data: Teacher[]; segments: Segments; onToggle: (group: string, value: string) => void }) {
@@ -533,6 +536,33 @@ function WakasekJtmChart({ data, segments, onToggle }: { data: Teacher[]; segmen
         </div>
         <p className="data-studio-axis-title">Total JP Tatap Muka Per Individu</p>
       </div>
+    </div>
+  );
+}
+
+function WakasekTaskTypePie({ data, segments, onToggle }: { data: Teacher[]; segments: Segments; onToggle: (group: string, value: string) => void }) {
+  const rows = countBy(data.flatMap((teacher) => teacher.tasks.filter((task) => task !== WAKASEK_BASE_TASK).map((task) => ({ task }))), (item) => item.task)
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, "id"))
+    .map((item, index) => ({ ...item, color: palette[index % palette.length] }));
+  const total = Math.max(rows.reduce((sum, item) => sum + item.value, 0), 1);
+  if (!rows.length) return <EmptyState title="Tidak ada tugas tambahan lain" body="Wakasek pada filter aktif hanya memiliki tugas Wakil Kepala Sekolah." />;
+  return <InteractiveTaskPie rows={rows} group="taskType" segments={segments} onToggle={onToggle} ariaLabel="Kategori tugas tambahan lain Wakasek" unitLabel="Wakasek" exportRows={rows.map((item) => ({ Kategori_Tugas_Tambahan: item.label, Jumlah_Wakasek: item.value, Persentase: Number((item.value / total * 100).toFixed(2)) }))} />;
+}
+
+function WakasekTeacherTable({ data }: { data: Teacher[] }) {
+  const [pagination, setPagination] = useState({ signature: "", page: 0 });
+  const pageSize = 12;
+  const ordered = [...data].sort((a, b) => a.name.localeCompare(b.name, "id") || a.nik.localeCompare(b.nik, "id"));
+  const dataSignature = ordered.map((teacher) => teacher.nik).join("|");
+  const pageIndex = pagination.signature === dataSignature ? pagination.page : 0;
+  const pageCount = Math.max(Math.ceil(ordered.length / pageSize), 1);
+  const safePage = Math.min(pageIndex, pageCount - 1);
+  const start = safePage * pageSize;
+  const visible = ordered.slice(start, start + pageSize);
+  return (
+    <div className="wakasek-teacher-table" data-export-json={JSON.stringify(ordered.map((teacher) => ({ NIK: teacher.nik, Nama_Lengkap: teacher.name, Nama_Sekolah: teacher.school, Jenjang: teacher.jenjang, Tugas_Tambahan: teacher.tasks.join("; ") })))}>
+      <div className="wakasek-table-scroll"><table><thead><tr><th>NIK</th><th>Nama Lengkap</th><th>Nama Sekolah</th></tr></thead><tbody>{visible.map((teacher) => <tr key={teacher.nik}><td>{teacher.nik}</td><td><strong>{teacher.name}</strong></td><td>{teacher.school}</td></tr>)}{!visible.length && <tr><td colSpan={3}>Tidak ada Wakasek yang sesuai dengan filter aktif.</td></tr>}</tbody></table></div>
+      <footer><span>{ordered.length ? `${start + 1}-${Math.min(start + pageSize, ordered.length)} / ${ordered.length}` : "0 / 0"}</span><button type="button" onClick={() => setPagination({ signature: dataSignature, page: Math.max(safePage - 1, 0) })} disabled={safePage === 0} aria-label="Halaman Wakasek sebelumnya">‹</button><button type="button" onClick={() => setPagination({ signature: dataSignature, page: Math.min(safePage + 1, pageCount - 1) })} disabled={safePage >= pageCount - 1} aria-label="Halaman Wakasek berikutnya">›</button></footer>
     </div>
   );
 }
@@ -1063,6 +1093,7 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
   const [workStandardScope, setWorkStandardScope] = useState<"Nasional" | "Internasional">("Nasional");
   const [standardFilterMode, setStandardFilterMode] = useState<"Gabungan" | "Nasional" | "Internasional">("Gabungan");
   const [taskTab, setTaskTab] = useState("Umum");
+  const [wakasekTaskCategory, setWakasekTaskCategory] = useState("");
   const [orgTab, setOrgTab] = useState("Sekolah");
   const [simTab, setSimTab] = useState("Standar JP");
   const [standard, setStandard] = useState(24);
@@ -1082,6 +1113,7 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
 
   const options = useMemo(() => ({ years: unique(teachers.map((teacher) => teacher.year)), groupLevels: ["TK", "SD", "SMP", "SLTA", "Primary", "Secondary"].filter((group) => teachers.some((teacher) => teacher.groupJenjang === group)), levels: JENJANG_ORDER, programs: unique(teachers.map((teacher) => teacher.program)), teacherCategories: ["Guru Nasional", "Guru Bilingual", "Guru Internasional"].filter((category) => teachers.some((teacher) => teacher.teacherCategory === category)), schools: unique(teachers.filter((teacher) => (standardFilterMode === "Gabungan" || (standardFilterMode === "Internasional" ? teacher.jenjang === "Internasional" : NATIONAL_LEVELS.includes(teacher.jenjang))) && (filters.groupJenjang.length === 0 || filters.groupJenjang.includes(teacher.groupJenjang)) && (filters.jenjang.length === 0 || filters.jenjang.includes(teacher.jenjang))).map((teacher) => teacher.school)), statuses: unique(teachers.map((teacher) => teacher.status)) }), [filters.groupJenjang, filters.jenjang, standardFilterMode, teachers]);
   const baseData = useMemo(() => teachers.filter((teacher) => (standardFilterMode === "Gabungan" || (standardFilterMode === "Internasional" ? teacher.jenjang === "Internasional" : NATIONAL_LEVELS.includes(teacher.jenjang))) && (filters.year.length === 0 || filters.year.includes(teacher.year)) && (filters.groupJenjang.length === 0 || filters.groupJenjang.includes(teacher.groupJenjang)) && (filters.jenjang.length === 0 || filters.jenjang.includes(teacher.jenjang)) && (filters.program.length === 0 || filters.program.includes(teacher.program)) && (filters.teacherCategory.length === 0 || filters.teacherCategory.includes(teacher.teacherCategory)) && (filters.school.length === 0 || filters.school.includes(teacher.school)) && (filters.status.length === 0 || filters.status.includes(teacher.status)) && (filters.individual.length === 0 || filters.individual.includes(teacher.statusIndividu))), [filters, standardFilterMode, teachers]);
+  const wakasekTaskOptions = useMemo(() => unique(baseData.filter((teacher) => teacher.isWakasek).flatMap((teacher) => teacher.tasks.filter((task) => task !== WAKASEK_BASE_TASK))), [baseData]);
   const filteredData = useMemo(() => filterBySegments(baseData, segments, standard), [baseData, segments, standard]);
 
   function updateFilter(key: keyof FilterState, value: string[]) {
@@ -1093,6 +1125,7 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
       setWorkStandardScope(selectsOnlyInternational ? "Internasional" : "Nasional");
       setStandard(selectsOnlyInternational ? 30 : 24);
     }
+    setWakasekTaskCategory("");
     setSegments({});
   }
   function toggleLevel(level: string) {
@@ -1112,6 +1145,7 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
     }));
     setSegments({});
     setDetailModalOpen(false);
+    setWakasekTaskCategory("");
   }
   function toggleSegment(group: string, value: string) {
     pendingSegmentSelection.current[group] = [value];
@@ -1126,7 +1160,7 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
     });
   }
   function navigate(page: string) { setActivePage(page); setSegments({}); setMobileNav(false); window.scrollTo({ top: 0, behavior: "smooth" }); }
-  function resetAll() { setFilters({ year: [], groupJenjang: [], jenjang: [], program: [], teacherCategory: [], school: [], status: [], individual: [] }); setStandardFilterMode("Gabungan"); setWorkStandardScope("Nasional"); setStandard(24); setSegments({}); }
+  function resetAll() { setFilters({ year: [], groupJenjang: [], jenjang: [], program: [], teacherCategory: [], school: [], status: [], individual: [] }); setStandardFilterMode("Gabungan"); setWorkStandardScope("Nasional"); setStandard(24); setWakasekTaskCategory(""); setSegments({}); }
 
   const summaryData = baseData;
   const summaryFilteredData = filterBySegments(summaryData, segments, standard);
@@ -1152,7 +1186,10 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
   let pageData = filteredData;
   if (usesDefaultPopulation) pageData = summaryFilteredData;
   if (activePage === "workload" && workTab === "Standar & Status") pageData = workloadStandardFilteredData;
-  if (activePage === "tasks" && taskTab !== "Umum") pageData = filteredData.filter((teacher) => taskTab === "Wakasek" ? teacher.isWakasek : taskTab === "BK" ? teacher.isBK : teacher.statusIndividu === "Kasek");
+  if (activePage === "tasks" && taskTab !== "Umum") {
+    pageData = filteredData.filter((teacher) => taskTab === "Wakasek" ? teacher.isWakasek : taskTab === "BK" ? teacher.isBK : teacher.statusIndividu === "Kasek");
+    if (taskTab === "Wakasek" && wakasekTaskCategory) pageData = pageData.filter((teacher) => teacher.tasks.includes(wakasekTaskCategory));
+  }
   const taskChartData = taskTab === "Umum" ? baseData : pageData;
 
   return (
@@ -1220,7 +1257,8 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
           </>}
 
           {activePage === "tasks" && <>
-            <div className="tab-row" role="group" aria-label="Pilihan analisis tugas dan peran">{["Umum", "Wakasek", "BK", "Kasek"].map((tab) => <button type="button" className={taskTab === tab ? "active" : ""} aria-pressed={taskTab === tab} key={tab} onClick={() => { setTaskTab(tab); setSegments(tab === "Umum" ? {} : { role: [tab] }); }}><span aria-hidden="true" className="tab-choice-indicator" />{tab}</button>)}</div>
+            <div className="tab-row" role="group" aria-label="Pilihan analisis tugas dan peran">{["Umum", "Wakasek", "BK", "Kasek"].map((tab) => <button type="button" className={taskTab === tab ? "active" : ""} aria-pressed={taskTab === tab} key={tab} onClick={() => { setTaskTab(tab); setWakasekTaskCategory(""); setSegments(tab === "Umum" ? {} : { role: [tab] }); }}><span aria-hidden="true" className="tab-choice-indicator" />{tab}</button>)}</div>
+            {taskTab === "Wakasek" && <div className="wakasek-role-filter"><label htmlFor="wakasek-task-category"><span>Filter khusus Wakasek</span><strong>Kategori Tugas Tambahan Wakasek</strong></label><div className="wakasek-role-select"><select id="wakasek-task-category" value={wakasekTaskCategory} onChange={(event) => { setWakasekTaskCategory(event.target.value); setSegments({}); setDetailModalOpen(false); }}><option value="">Semua kategori tugas tambahan</option>{wakasekTaskOptions.map((task) => <option key={task} value={task}>{task} ({baseData.filter((teacher) => teacher.isWakasek && teacher.tasks.includes(task)).length})</option>)}</select><span aria-hidden="true">⌄</span></div></div>}
             {taskTab === "Wakasek" ? <div className="kpi-grid compact"><KpiCard label="Total Wakasek" value={formatNumber(pageData.length)} helper="NIK unik sesuai filter aktif" tone="navy" /><KpiCard label="JTM di Bawah 12 JP" value={formatNumber(pageData.filter((teacher) => teacher.jtm < WAKASEK_JTM_STANDARD).length)} helper="Di bawah ambang visual Wakasek" tone="red" /><KpiCard label="JTM Tepat 12 JP" value={formatNumber(pageData.filter((teacher) => teacher.jtm === WAKASEK_JTM_STANDARD).length)} helper="Sesuai konversi Wakasek pada pedoman" tone="gold" /><KpiCard label="Dengan Tugas Tambahan Lain" value={formatNumber(pageData.filter(hasOtherWakasekTask).length)} helper="Merangkap selain Wakil Kepala Sekolah" tone="green" /></div> : <div className="kpi-grid compact"><KpiCard label="Dengan Tugas Tambahan" value={formatNumber(pageData.filter((teacher) => teacher.taskHours > 0).length)} helper="Memiliki konversi jam" tone="gold" /><KpiCard label="Tanpa Tugas Tambahan" value={formatNumber(pageData.filter((teacher) => teacher.taskHours === 0).length)} helper="Tidak ada konversi tugas" /><KpiCard label="Rata-rata Jam Tugas" value={`${formatNumber(pageData.reduce((s, t) => s + t.taskHours, 0) / Math.max(pageData.length, 1), 1)} JP`} helper={`Kelompok ${taskTab}`} tone="green" /><KpiCard label="Lebih dari Satu Tugas" value={formatNumber(pageData.filter((teacher) => teacher.taskCount > 1).length)} helper="Perlu pemantauan beban" tone="red" /></div>}
             {taskTab === "Umum" ? <div className="chart-grid task-chart-grid">
               <ChartCard title="TENAGA PENDIDIK BERDASARKAN TUGAS TAMBAHAN" subtitle="Satu NIK per tenaga pendidik"><TaskPresencePie data={taskChartData} segments={segments} onToggle={toggleSegment} /></ChartCard>
@@ -1233,7 +1271,8 @@ export default function DashboardClient({ initialTeachers }: { initialTeachers: 
             </div> : taskTab === "Wakasek" ? <div className="chart-grid task-chart-grid">
               <ChartCard title="JUMLAH JAM TATAP MUKA WAKASEK" subtitle="Distribusi JTM Wakasek · ambang 12 JP sesuai visual dan konversi pada pedoman"><WakasekJtmChart data={taskChartData} segments={segments} onToggle={toggleSegment} /></ChartCard>
               <ChartCard title="DENGAN TUGAS TAMBAHAN" subtitle="Wakasek dengan atau tanpa tugas tambahan lain"><DonutChart data={[{ label: "Tanpa tugas tambahan lain", value: taskChartData.filter((teacher) => !hasOtherWakasekTask(teacher)).length }, { label: "Dengan tugas tambahan lain", value: taskChartData.filter(hasOtherWakasekTask).length }]} group="wakasekOtherTask" segments={segments} onToggle={toggleSegment} /></ChartCard>
-              <ChartCard title="Jenis Tugas Tambahan Lain - Wakasek" subtitle="Tugas selain Wakil Kepala Sekolah · klik untuk melihat nama karyawan"><HorizontalBars data={countBy(taskChartData.flatMap((teacher) => teacher.tasks.filter((task) => task !== WAKASEK_BASE_TASK).map((task) => ({ task }))), (item) => item.task)} group="taskType" segments={segments} onToggle={toggleSegment} maxItems={10} /></ChartCard>
+              <ChartCard title="TUGAS TAMBAHAN WAKASEK" subtitle="Kategori tugas selain Wakil Kepala Sekolah · klik irisan untuk melihat detail"><WakasekTaskTypePie data={taskChartData} segments={segments} onToggle={toggleSegment} /></ChartCard>
+              <ChartCard title="DAFTAR WAKASEK" subtitle={`${formatNumber(taskChartData.length)} NIK unik sesuai seluruh filter aktif`} exportPeople={taskChartData}><WakasekTeacherTable data={taskChartData} /></ChartCard>
               <ChartCard title="Persebaran Wakasek per Jenjang" subtitle="Urutan TK, SD, SMP, SLTA, dan Internasional"><HorizontalBars data={countBy(taskChartData, (teacher) => teacher.jenjang)} group="jenjang" segments={segments} onToggle={toggleSegment} maxItems={6} /></ChartCard>
               <ChartCard title="Jam Tugas Tambahan Wakasek" subtitle="Distribusi konversi jam tugas tambahan"><Histogram data={taskChartData} metric={(teacher) => teacher.taskHours} group="taskBucket" segments={segments} onToggle={toggleSegment} /></ChartCard>
               <ChartCard title="Jumlah Tugas per Wakasek" subtitle="Distribusi banyaknya tugas yang dirangkap"><ColumnChart data={countBy(taskChartData, (teacher) => String(teacher.taskCount))} group="taskCount" segments={segments} onToggle={toggleSegment} /></ChartCard>
