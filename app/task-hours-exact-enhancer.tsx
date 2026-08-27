@@ -44,13 +44,14 @@ function readState(): Filters {
     year: readControl("Tahun Pelajaran"), groupJenjang: readControl("Grup Jenjang"), jenjang: levelButtons,
     program: readControl("Program"), teacherCategory: readControl("Kategori Guru"), school: readControl("Sekolah"),
     status: readControl("Status Kontrak"), individual: readControl("Status Individu"), standardMode: mode, tab,
-    visible: pageTitle === "Tugas Tambahan & Peran" && ["Wakasek", "Kasek"].includes(tab),
+    visible: pageTitle === "Tugas Tambahan & Peran" && ["Wakasek", "BK", "Kasek"].includes(tab),
   };
 }
 
 function applyFilters(data: Teacher[], filters: Filters) {
   return data.filter((teacher) => {
     if (filters.tab === "Wakasek" && !teacher.isWakasek) return false;
+    if (filters.tab === "BK" && !teacher.isBK) return false;
     if (filters.tab === "Kasek" && teacher.statusIndividu !== "Kasek") return false;
     if (filters.standardMode.includes("Internasional") && teacher.jenjang !== "Internasional") return false;
     if (filters.standardMode.includes("TK–SLTA") && teacher.jenjang === "Internasional") return false;
@@ -77,10 +78,21 @@ export default function TaskHoursExactEnhancer({ teachers }: { teachers: Teacher
       const next = readState();
       setFilters((current) => JSON.stringify(current) === JSON.stringify(next) ? current : next);
       setTarget(document.querySelector<HTMLElement>(".dashboard-body"));
+
       document.querySelectorAll<HTMLElement>(".chart-card").forEach((card) => {
         const title = card.querySelector("h3")?.textContent?.trim() || "";
-        const shouldHide = next.tab === "Wakasek" ? title === "Jam Tugas Tambahan Wakasek" : next.tab === "BK" || next.tab === "Kasek" ? title === "Jam Tugas Tambahan" : false;
+        const shouldHide = next.tab === "Wakasek"
+          ? title === "Jam Tugas Tambahan Wakasek"
+          : next.tab === "BK" || next.tab === "Kasek"
+            ? title === "Jam Tugas Tambahan"
+            : false;
         card.style.display = shouldHide ? "none" : "";
+      });
+
+      document.querySelectorAll<HTMLElement>("section").forEach((section) => {
+        const title = section.querySelector("h3")?.textContent?.trim() || "";
+        if (title !== "Jumlah Jam Tugas Tambahan") return;
+        section.style.display = next.tab === "BK" ? "none" : "";
       });
     };
     sync();
