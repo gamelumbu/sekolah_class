@@ -69,15 +69,20 @@ function applyFilters(data: Teacher[], filters: Filters) {
 
 function format(value: number) { return new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(value); }
 
+function escapeCsv(value: string | number) {
+  return `"${String(value).replaceAll('"', '""')}"`;
+}
+
 export default function TaskHoursExactEnhancer({ teachers }: { teachers: Teacher[] }) {
   const [filters, setFilters] = useState<Filters>(EMPTY);
   const [target, setTarget] = useState<HTMLElement | null>(null);
+  const [selectedHours, setSelectedHours] = useState<number | null>(null);
 
   useEffect(() => {
     const sync = () => {
       const next = readState();
       setFilters((current) => JSON.stringify(current) === JSON.stringify(next) ? current : next);
-      setTarget(document.querySelector<HTMLElement>(".dashboard-body"));
+      setTarget(document.getElementById("dashboard-enhancer-slot") || document.querySelector<HTMLElement>(".dashboard-body"));
 
       document.querySelectorAll<HTMLElement>(".chart-card").forEach((card) => {
         const title = card.querySelector("h3")?.textContent?.trim() || "";
@@ -94,6 +99,8 @@ export default function TaskHoursExactEnhancer({ teachers }: { teachers: Teacher
         if (title !== "Jumlah Jam Tugas Tambahan") return;
         section.style.display = next.tab === "BK" ? "none" : "";
       });
+
+      if (!next.visible) setSelectedHours(null);
     };
     sync();
     const observer = new MutationObserver(sync);
@@ -103,6 +110,15 @@ export default function TaskHoursExactEnhancer({ teachers }: { teachers: Teacher
     return () => { observer.disconnect(); document.removeEventListener("change", sync, true); document.removeEventListener("click", sync, true); };
   }, []);
 
+  useEffect(() => {
+    if (selectedHours === null) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") setSelectedHours(null); };
+    window.addEventListener("keydown", close);
+    return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", close); };
+  }, [selectedHours]);
+
   const data = useMemo(() => applyFilters(teachers, filters), [teachers, filters]);
   const rows = useMemo(() => {
     const counts = new Map<number, number>();
@@ -110,24 +126,57 @@ export default function TaskHoursExactEnhancer({ teachers }: { teachers: Teacher
     return [...counts.entries()].sort((a, b) => a[0] - b[0]).map(([hours, count]) => ({ hours, count }));
   }, [data]);
   const max = Math.max(...rows.map((row) => row.count), 1);
+  const selectedTeachers = useMemo(() => selectedHours === null ? [] : data.filter((teacher) => teacher.taskHours === selectedHours), [data, selectedHours]);
+
+  function exportSelected() {
+    if (selectedHours === null || !selectedTeachers.length) return;
+    const header = ["NIK", "Nama", "Peran", "Jenjang", "Sekolah", "Payroll", "Status Kontrak", "Bidang Studi", "JTM", "Jam Tugas Tambahan", "Jam Aktual", "Tugas Tambahan"];
+    const rows = selectedTeachers.map((teacher) => [teacher.nik, teacher.name, filters.tab, teacher.jenjang, teacher.school, teacher.payroll, teacher.status, teacher.subject, teacher.jtm, teacher.taskHours, teacher.actual, teacher.tasks.join(", ")]);
+    const csv = `\uFEFF${[header, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\r\n")}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `jam-tugas-tambahan-${filters.tab.toLowerCase()}-${format(selectedHours).replace(",", "-")}-jp.csv`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
 
   if (!filters.visible || !target) return null;
 
-  return createPortal(
-    <section className={styles.card} aria-label={`Distribusi Jam Tugas Tambahan ${filters.tab}`}>
-      <header><div><h3>{filters.tab === "Wakasek" ? "Jam Tugas Tambahan Wakasek" : `Jam Tugas Tambahan ${filters.tab}`}</h3><p>Distribusi nilai JP exact berdasarkan database dan seluruh filter aktif.</p></div></header>
-      <div className={styles.scroll}>
-        <div className={styles.chart} style={{ minWidth: `${Math.max(620, rows.length * 48)}px` }}>
-          <div className={styles.plot}>
-            {rows.map((row) => <div className={styles.group} key={row.hours} title={`${format(row.hours)} JP · ${format(row.count)} guru`}>
-              <strong>{format(row.count)}</strong>
-              <div className={styles.track}><i style={{ height: `${Math.max((row.count / max) * 100, 2)}%` }} /></div>
-              <span>{format(row.hours)}</span>
-            </div>)}
+  return <>
+    {createPortal(
+      <section className={styles.card} aria-label={`Distribusi Jam Tugas Tambahan ${filters.tab}`}>
+        <header><div><h3>{filters.tab === "Wakasek" ? "Jam Tugas Tambahan Wakasek" : `Jam Tugas Tambahan ${filters.tab}`}</h3><p>Klik batang untuk melihat daftar tenaga pendidik. Distribusi memakai nilai JP exact dari database dan seluruh filter aktif.</p></div></header>
+        <div className={styles.scroll}>
+          <div className={styles.chart} style={{ minWidth: `${Math.max(620, rows.length * 48)}px` }}>
+            <div className={styles.plot}>
+              {rows.map((row) => <button type="button" className={`${styles.group} ${selectedHours === row.hours ? styles.selected : ""}`} key={row.hours} title={`${format(row.hours)} JP · ${format(row.count)} guru. Klik untuk melihat detail.`} onClick={() => setSelectedHours(row.hours)} aria-label={`${format(row.hours)} JP tugas tambahan, ${format(row.count)} guru. Buka detail.`}>
+                <strong>{format(row.count)}</strong>
+                <div className={styles.track}><i style={{ height: `${Math.max((row.count / max) * 100, 2)}%` }} /></div>
+                <span>{format(row.hours)}</span>
+              </button>)}
+            </div>
+            <div className={styles.axis}>Jam Tugas Tambahan (JP)</div>
           </div>
-          <div className={styles.axis}>Jam Tugas Tambahan (JP)</div>
         </div>
-      </div>
-    </section>, target
-  );
+      </section>, target
+    )}
+    {selectedHours !== null && createPortal(
+      <div className={styles.modalBackdrop} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedHours(null); }}>
+        <section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="task-hours-detail-title">
+          <header className={styles.modalHeader}>
+            <div><p>Detail pilihan chart</p><h2 id="task-hours-detail-title">{filters.tab} · {format(selectedHours)} JP Tugas Tambahan</h2><span>{format(selectedTeachers.length)} tenaga pendidik sesuai seluruh filter aktif</span></div>
+            <button type="button" className={styles.closeButton} onClick={() => setSelectedHours(null)} aria-label="Tutup detail">×</button>
+          </header>
+          <div className={styles.modalActions}><button type="button" onClick={exportSelected}>Unduh CSV</button></div>
+          <div className={styles.tableWrap}>
+            <table>
+              <thead><tr><th>NIK</th><th>Nama Lengkap</th><th>Jenjang</th><th>Sekolah / Payroll</th><th>Status</th><th>Bidang Studi</th><th>JTM</th><th>Jam Tugas</th><th>Aktual</th><th>Tugas Tambahan</th></tr></thead>
+              <tbody>{selectedTeachers.map((teacher) => <tr key={teacher.nik}><td>{teacher.nik}</td><td><strong>{teacher.name}</strong></td><td>{teacher.jenjang}</td><td>{teacher.school}<small>{teacher.payroll}</small></td><td>{teacher.status}</td><td>{teacher.subject}</td><td>{format(teacher.jtm)}</td><td><strong>{format(teacher.taskHours)}</strong></td><td>{format(teacher.actual)}</td><td>{teacher.tasks.join(", ") || "-"}</td></tr>)}</tbody>
+            </table>
+          </div>
+        </section>
+      </div>, document.body
+    )}
+  </>;
 }
