@@ -114,7 +114,7 @@ export default function UploadDataEnhancer() {
       <main className={styles.body}>
         <section className={styles.hero}>
           <div><span className={styles.eyebrow}>DATA MASTER</span><h2>Tambah data tanpa mengubah struktur dashboard</h2><p>Gunakan satu template yang sama setiap tahun. Sistem akan memvalidasi NIK, tahun pelajaran, jenjang, penugasan, tugas tambahan, dan referensi antar-sheet sebelum data boleh masuk ke database.</p></div>
-          <div className={styles.heroActions}><a className={styles.primaryLink} href="/api/data-import/template">↓ Download Template Excel</a><small>Template sudah berisi contoh pengisian 2026/2027.</small></div>
+          <div className={styles.heroActions}><a className={styles.primaryLink} href="/api/data-import/template">↓ Download Template Excel</a><small>Template sudah berisi contoh pengisian</small></div>
         </section>
 
         <section className={styles.steps}>
