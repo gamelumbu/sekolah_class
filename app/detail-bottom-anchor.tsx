@@ -2,35 +2,25 @@
 
 import { useEffect } from "react";
 
-const ANCHOR_ID = "dashboard-enhancer-slot";
-
 export default function DetailBottomAnchor() {
   useEffect(() => {
-    const ensureAnchor = () => {
+    let arranging = false;
+    const keepDetailLast = () => {
+      if (arranging) return;
       const body = document.querySelector<HTMLElement>(".dashboard-body");
-      if (!body) return;
+      const detail = body?.querySelector<HTMLElement>(".detail-section");
+      if (!body || !detail || detail.parentElement !== body) return;
 
-      let anchor = document.getElementById(ANCHOR_ID);
-      if (!anchor) {
-        anchor = document.createElement("div");
-        anchor.id = ANCHOR_ID;
-        anchor.style.display = "grid";
-        anchor.style.gap = "18px";
-        anchor.style.marginTop = "18px";
-      }
-
-      const detail = body.querySelector<HTMLElement>(".detail-section");
-      if (detail?.parentElement) {
-        if (anchor.parentElement !== detail.parentElement || anchor.nextElementSibling !== detail) {
-          detail.parentElement.insertBefore(anchor, detail);
-        }
-      } else if (!anchor.parentElement) {
-        body.appendChild(anchor);
+      arranging = true;
+      try {
+        while (detail.nextSibling) body.insertBefore(detail.nextSibling, detail);
+      } finally {
+        arranging = false;
       }
     };
 
-    ensureAnchor();
-    const observer = new MutationObserver(ensureAnchor);
+    keepDetailLast();
+    const observer = new MutationObserver(keepDetailLast);
     observer.observe(document.body, { subtree: true, childList: true });
     return () => observer.disconnect();
   }, []);
