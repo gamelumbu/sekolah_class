@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 import DashboardClient from "./dashboard-client";
 import LoginForm from "./login-form";
 import SubjectBidirectionalEnhancer from "./subject-bidirectional-enhancer";
-import BKWorkloadEnhancer from "./bk-workload-enhancer";
 import TaskHoursExactEnhancer from "./task-hours-exact-enhancer";
 import DetailBottomAnchor from "./detail-bottom-anchor";
 import { authCookie, verifySession } from "@/lib/auth";
@@ -19,7 +18,6 @@ export default async function Home() {
     <DashboardClient initialTeachers={teachers} />
     <DetailBottomAnchor />
     <SubjectBidirectionalEnhancer teachers={teachers} />
-    <BKWorkloadEnhancer teachers={teachers} />
     <TaskHoursExactEnhancer teachers={teachers} />
   </>;
 }
