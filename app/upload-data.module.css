@@ -1,4 +1,5 @@
-:global(.main-content.data-upload-open) > :not(.data-upload-portal) { display: none !important; }
+:global(.main-content.data-upload-open) > *:not(.portal) { display: none !important; }
+.portal { display:block !important; width:100%; min-height:100vh; }
 .page { min-height: 100vh; background: #f4f7fb; color: #17324f; }
 .topbar { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:24px 30px; background:#fff; border-bottom:1px solid #dce5ef; }
 .topbar p { margin:0 0 3px; color:#6d8299; font-size:12px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
