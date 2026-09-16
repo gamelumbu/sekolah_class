@@ -37,14 +37,16 @@ npm run dev
 | `SSO_CLIENT_SECRET` | Client secret aplikasi dari provider SSO. Jangan simpan nilai asli di GitHub. |
 | `SSO_SCOPE` | Scope OAuth2. Default: `openid email profile`. |
 | `SSO_ALLOWED_DOMAINS` | Daftar domain email yang boleh login, dipisah koma. Kosongkan untuk mengizinkan semua akun yang diterima provider. |
+| `SSO_MASTER_USERS` | Daftar email master/admin yang selalu boleh login via SSO, dipisah koma. |
 | `SSO_ALLOWED_USERS_CSV` | File CSV daftar akun yang boleh login. Default: `teachers-existing.csv`; kolom `nik` dicocokkan dengan bagian email sebelum `@`. |
 
 Untuk membuat `AUTH_SECRET`, jalankan `openssl rand -base64 48` di komputer Anda.
+User SSO juga dapat dikelola dari menu **Kelola User** di dashboard. Menu ini menyimpan data ke tabel `dashboard_users` pada database `DATABASE_URL`; tabel dibuat otomatis saat fitur dipakai.
 
 Callback/redirect URI yang perlu didaftarkan di provider SSO:
 
 ```text
-https://domain-anda/api/auth/sso/callback
+https://localhost:3000/api/auth/sso/callback
 ```
 
 ## Deploy ke Vercel

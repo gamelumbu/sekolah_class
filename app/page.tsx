@@ -6,6 +6,7 @@ import TaskHoursExactEnhancer from "./task-hours-exact-enhancer";
 import DetailBottomAnchor from "./detail-bottom-anchor";
 import UploadDataEnhancer from "./upload-data-enhancer";
 import SidebarYearSummaryEnhancer from "./sidebar-year-summary-enhancer";
+import UserManagementEnhancer from "./user-management-enhancer";
 import { authCookie, verifySession } from "@/lib/auth";
 import { readTeacherDatabase } from "@/lib/teacher-data";
 
@@ -20,6 +21,7 @@ export default async function Home() {
     <DashboardClient initialTeachers={teachers} />
     <SidebarYearSummaryEnhancer teachers={teachers} />
     <UploadDataEnhancer />
+    <UserManagementEnhancer />
     <DetailBottomAnchor />
     <SubjectBidirectionalEnhancer teachers={teachers} />
     <TaskHoursExactEnhancer teachers={teachers} />

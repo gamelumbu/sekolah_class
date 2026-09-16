@@ -1,5 +1,6 @@
 import { readFileSync } from "fs";
 import { join } from "path";
+import { isActiveLoginUser, isConfiguredMasterUser } from "./login-users-db";
 
 const DEFAULT_ALLOWED_USERS_CSV = "teachers-existing.csv";
 
@@ -69,9 +70,15 @@ function loadAllowedLoginData() {
   return { exact, localParts };
 }
 
-export function isAllowedSsoUser(identifier: string) {
+export async function isAllowedSsoUser(identifier: string) {
+  if (isConfiguredMasterUser(identifier)) return true;
+  if (await isActiveLoginUser(identifier)) return true;
+
   if (!cachedAllowedLoginData) cachedAllowedLoginData = loadAllowedLoginData();
   const normalized = normalizeIdentifier(identifier);
   const localPart = normalized.split("@")[0];
-  return cachedAllowedLoginData.exact.has(normalized) || cachedAllowedLoginData.localParts.has(localPart);
+  return (
+    cachedAllowedLoginData.exact.has(normalized) ||
+    cachedAllowedLoginData.localParts.has(localPart)
+  );
 }
