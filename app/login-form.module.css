@@ -180,6 +180,7 @@
 
 .teamIcon svg,
 .loginIcon svg,
+.ssoIcon svg,
 .inputIcon svg,
 .securityIcon svg,
 .previewNav svg,
@@ -497,6 +498,57 @@
   color: var(--login-muted);
   font-size: 12px;
   line-height: 1.65;
+}
+
+.ssoButton {
+  display: flex;
+  height: 49px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid #cbd9e7;
+  border-radius: 11px;
+  background: #fff;
+  color: #143f6b;
+  text-decoration: none;
+  box-shadow: 0 9px 20px rgba(17,55,91,.07);
+  font-size: 12px;
+  font-weight: 820;
+  transition: transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+
+.ssoButton:hover {
+  border-color: #2f6eb5;
+  background: #f7fbff;
+  box-shadow: 0 12px 24px rgba(17,55,91,.11);
+  transform: translateY(-1px);
+}
+
+.ssoIcon {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  color: #d39b22;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: #8da0b3;
+  font-size: 10px;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: #e2eaf2;
 }
 
 .form {

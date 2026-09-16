@@ -1,5 +1,7 @@
 const SESSION_COOKIE = "dashboard_session";
+const SSO_STATE_COOKIE = "dashboard_sso_state";
 const SESSION_MAX_AGE = 60 * 60 * 8;
+const SSO_STATE_MAX_AGE = 60 * 10;
 
 type SessionPayload = {
   username: string;
@@ -74,5 +76,16 @@ export const authCookie = {
     sameSite: "lax" as const,
     path: "/",
     maxAge: SESSION_MAX_AGE,
+  },
+};
+
+export const ssoStateCookie = {
+  name: SSO_STATE_COOKIE,
+  options: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: SSO_STATE_MAX_AGE,
   },
 };
